@@ -63,6 +63,11 @@ is one of these four, explained in more depth.
 | CI, ChainLP with no password | `http://localhost:8085/` (native/shell runner) or `http://host.docker.internal:8085/` (Docker-executor runner) | A self-hosted runner/agent on the same machine as ChainLP (see "ChainLP in CI" below) |
 | CI, ChainLP has a password | `http://localhost:8086/` (native/shell runner) or `http://host.docker.internal:8086/` (Docker-executor runner) | Run `write-proxy/setup.sh` (or `.ps1`) once on the runner's machine - the only thing you'll be asked for is the real URL and credential (see "Writing to a ChainLP that's behind a login" below) |
 
+`8085`/`8086` are this bridge's chosen defaults, not reserved or
+guaranteed-free ports - if something else on your machine already uses
+one, change it (see "Bring it up" / "Writing to a ChainLP that's behind
+a login" below for exactly where).
+
 **None of this changes between GitLab CI, GitHub Actions, and Azure
 Pipelines.** The two environment variable names above, the four rows in
 this table, and the write-proxy itself are identical on every platform -
@@ -101,6 +106,18 @@ This starts two containers:
 Docker Compose waits for `chainlp` to report healthy before starting the
 proxy, so a `curl`/browser hit immediately after `up -d` should already
 work rather than racing a cold start.
+
+**`8085` is just this bridge's chosen default, not a reserved or
+guaranteed-free port.** If something else on your machine is already
+using it, `docker compose up -d` fails outright with an error like
+`Bind for 127.0.0.1:8085 failed: port is already allocated`. If that
+happens, change it in **two places, kept in sync**:
+1. `docker-compose.yml`, in this same folder - change `"127.0.0.1:8085:80"`
+   under `chainlp-proxy` to whatever port you want instead.
+2. `chaintest.properties` - change `chaintest.generator.chainlp.host.url`
+   to match that same new port.
+
+Then run `docker compose up -d` again.
 
 ## Point the bridge at it
 
@@ -327,6 +344,12 @@ directly:
 CHAINTEST_GENERATOR_CHAINLP_ENABLED=true
 CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://localhost:8086/
 ```
+
+**Same caveat as `chainlp-proxy`'s `8085`: `8086` is just a default, not
+guaranteed free.** If something else is already using it, change
+`"127.0.0.1:8086:80"` in `write-proxy/docker-compose.yml` to a different
+port, update the URL above to match, and restart with
+`docker compose up -d` (from inside `write-proxy/`).
 
 ### Where this needs to run
 
