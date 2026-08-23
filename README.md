@@ -108,16 +108,22 @@ force/remove-config flag shown above.
    a browser - no server, no further setup. **If this is all you wanted,
    you're already finished - stop here.**
 4. **Only if you also want the real-time ChainLP dashboard**, pick
-   whichever of these two applies to you:
+   whichever of these two applies to you. In both cases, **you have to
+   set these two values yourself** in
+   **`Include/config/chaintest/chaintest.properties` inside your Katalon
+   project** - the one you just installed the bridge into, not this
+   bridge's own repo - nothing here is set for you automatically:
    - **No ChainLP yet, or don't care about a password**: `cd chainlp`,
-     then `docker compose up -d`, then in `chaintest.properties`:
+     then `docker compose up -d`, then set these in your Katalon
+     project's `Include/config/chaintest/chaintest.properties`:
      ```properties
      chaintest.generator.chainlp.enabled=true
      chaintest.generator.chainlp.host.url=http://localhost:8085/
      ```
    - **Your ChainLP already exists and has a login**: run
      `chainlp/write-proxy/setup.sh` (or `.ps1`) once, answer its three
-     prompts, then:
+     prompts, then set these in that same
+     `Include/config/chaintest/chaintest.properties` file:
      ```properties
      chaintest.generator.chainlp.enabled=true
      chaintest.generator.chainlp.host.url=http://localhost:8086/
