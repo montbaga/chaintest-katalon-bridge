@@ -1,0 +1,124 @@
+# Example Azure Pipelines config for a Katalon Studio project using the
+# ChainTest-Katalon Bridge. Copy this into your project's repo as
+# azure-pipelines.yml, fill in the TODOs, and it's ready to run.
+#
+# Uses the "Execute Katalon Studio Tests" Marketplace task (katalonTask),
+# which handles downloading and running the correct Katalon Runtime Engine
+# version for you - install it from the Azure DevOps Marketplace first if
+# your organization doesn't already have it.
+#
+# This bridge isn't published to npm yet, so this installs it by cloning
+# its own repo and running install.ps1 directly - works today regardless
+# of npm publish status. Once it is published, replace the "Install/
+# upgrade the bridge" step below with a single line:
+#   npx chaintest-katalon-bridge install "$(Build.SourcesDirectory)"
+#
+# The bridge itself needs no configuration here: it auto-detects Azure
+# Pipelines from the standard SYSTEM_TEAMFOUNDATIONCOLLECTIONURI /
+# BUILD_BUILDID variables ADO sets automatically, so the generated report's
+# System Info panel links back to this exact build with no setup required.
+
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  # Create a variable group named "Katalon" under Pipelines > Library, with
+  # a secret variable named KatalonApiKey holding your Katalon Runtime
+  # Engine API key (Katalon Store > Profile > API Key). Marking it secret
+  # keeps it masked in every log line.
+  - group: Katalon
+
+steps:
+  - checkout: self
+
+  # Installs/upgrades the bridge into this job's own checkout before the
+  # Katalon step runs, so this pipeline produces real ChainTest reports
+  # even if you never ran the installer locally. Nothing here is committed
+  # back to your repo, so a local Katalon Studio run still won't have
+  # ChainTest reporting until you also run the installer locally once and
+  # commit the result - this step only keeps CI itself current.
+  #
+  # TODO: replace <bridge-repo-url> with wherever you're hosting this
+  # bridge's own repo (a fork, your own copy, or the published one once
+  # you push/publish it).
+  - script: |
+      git clone --depth 1 <bridge-repo-url> "$(Agent.TempDirectory)\chaintest-bridge"
+      powershell -NoProfile -ExecutionPolicy Bypass -File "$(Agent.TempDirectory)\chaintest-bridge\Windows\install.ps1" -ProjectPath "$(Build.SourcesDirectory)"
+    displayName: 'Install/upgrade ChainTest-Katalon Bridge'
+
+  - task: PowerShell@2
+    displayName: 'Clean bin/ before Katalon run'
+    inputs:
+      targetType: 'inline'
+      script: |
+        # katalonTask resolves the project by scanning for a *.prj file, and
+        # will pick up a stray copy left under bin/ by an earlier step in
+        # this same job if one exists, running against the wrong project
+        # entirely. Clearing bin/ before every katalonTask step avoids that -
+        # repeat this step before each one if your pipeline runs more than
+        # one Test Suite or Test Suite Collection.
+        Remove-Item -Path "$(Build.SourcesDirectory)\bin" -Recurse -Force -ErrorAction SilentlyContinue
+
+  - task: katalonTask@1
+    displayName: 'Run Katalon tests'
+    condition: succeededOrFailed()
+    env:
+      # Katalon 11.4.0's OSGi bundles require JavaSE 21 (confirmed directly
+      # against this exact version), and Windows hosted agents do not
+      # default to it (their default JDK is version 8, far below what's
+      # needed) - pin it explicitly rather than relying on whatever the
+      # image defaults to. Swap the vmImage above to 'ubuntu-latest' and
+      # this same JAVA_HOME_21_X64 variable still applies; only the PATH
+      # separator would need to change from ';' to ':' and a
+      # xvfbConfiguration input added to katalonTask (Linux needs a virtual
+      # display even in console mode).
+      JAVA_HOME: $(JAVA_HOME_21_X64)
+      PATH: $(JAVA_HOME_21_X64)\bin;$(PATH)
+    inputs:
+      version: '11.4.0'
+      # TODO: replace <YourCollection> with your actual Test Suite
+      # Collection path, or swap -testSuiteCollectionPath for
+      # -testSuitePath="Test Suites/<YourSuite>" to run a single suite.
+      #
+      # --config -webui.autoUpdateDrivers=true keeps the WebUI driver
+      # (Edge/Chrome) in sync with whatever browser version is actually on
+      # the agent, instead of Katalon's bundled driver, which can lag
+      # behind a hosted agent's auto-updating browser and fail with
+      # SessionNotCreatedException.
+      executeArgs: '-retry=0 -testSuiteCollectionPath="Test Suites/<YourCollection>" -executionProfile="default" -browserType="Edge Chromium" -apiKey=$(KatalonApiKey) --config -webui.autoUpdateDrivers=true -reportFolder="$(Build.SourcesDirectory)\Reports"'
+
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: 'Reports/**/*.xml'
+      searchFolder: '$(Build.SourcesDirectory)'
+      mergeTestResults: true
+      failTaskOnFailedTests: true
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Katalon report folder'
+    condition: succeededOrFailed()
+    inputs:
+      PathtoPublish: '$(Build.SourcesDirectory)\Reports'
+      ArtifactName: 'katalon-reports'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish ChainTest report'
+    condition: succeededOrFailed()
+    inputs:
+      PathtoPublish: '$(Build.SourcesDirectory)\chaintest-report'
+      ArtifactName: 'chaintest-report'
+
+# This example covers the zero-touch static report only. Pushing results
+# into a shared ChainLP instance from CI is a separate setup on top of
+# this - it needs real, always-on infrastructure this agent can actually
+# reach (see chainlp/README.md's "Remote access" section for why a plain
+# localhost setup doesn't work for that), which isn't a one-line addition
+# here.

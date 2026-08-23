@@ -1,0 +1,85 @@
+services:
+  chainlp:
+    image: anshooarora/chaintest:0.0.9
+    container_name: chaintest-katalon-chainlp
+    environment:
+      - SPRING_PROFILES_ACTIVE=h2
+      - SPRING_DATASOURCE_URL=jdbc:h2:file:/data/db
+      - SPRING_DATASOURCE_DRIVERCLASSNAME=org.h2.Driver
+    volumes:
+      - chainlp-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    # Not published directly - only reachable through chainlp-proxy below.
+    # See proxy/nginx.conf and this folder's README.md ("Known limitation")
+    # for why the proxy exists.
+
+  chainlp-proxy:
+    image: nginx:1.27-alpine
+    container_name: chaintest-katalon-chainlp-proxy
+    depends_on:
+      chainlp:
+        condition: service_healthy
+    ports:
+      # Bound to loopback only, deliberately - "8085:80" alone binds to
+      # every network interface on this machine (Docker's default), which
+      # would make this reachable from anyone on the same LAN via this
+      # machine's real IP, not just "localhost" - contradicting the
+      # "unauthenticated because only this machine can reach it" claim
+      # made throughout this project's docs. Confirmed and fixed after
+      # a direct question about exactly this during development.
+      - "127.0.0.1:8085:80"
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    # Always on, unauthenticated. This bridge itself pushes results here
+    # directly (chaintest.generator.chainlp.host.url) and its HTTP client
+    # (ChainTestApiClient, in chaintest-core) has no way to send
+    # credentials at all - so this local path must stay open regardless
+    # of whether the optional tunnel below is running. Remote/public
+    # access always goes through chainlp-tunnel-auth instead, never
+    # through here directly.
+
+  # Optional: a second, separate nginx that only exists to put a login in
+  # front of the tunnel below. Kept apart from chainlp-proxy above (rather
+  # than adding auth_basic there directly) so a missing/misconfigured
+  # login can never take down this bridge's own local push path - and so
+  # a plain `docker compose up -d` (no --profile tunnel) never even
+  # creates this container.
+  chainlp-tunnel-auth:
+    image: nginx:1.27-alpine
+    container_name: chaintest-katalon-chainlp-tunnel-auth
+    profiles: ["tunnel"]
+    depends_on:
+      - chainlp-proxy
+    volumes:
+      - ./proxy/tunnel-auth.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./proxy/.htpasswd:/etc/nginx/.htpasswd:ro
+
+  # Optional: gives ChainLP a real, public HTTPS URL without any router/
+  # firewall configuration, using Cloudflare's free "quick tunnel" (no
+  # account or domain needed). Points at chainlp-tunnel-auth, not
+  # chainlp-proxy directly, so every request coming in from the public
+  # internet passes through the login first.
+  #
+  # Not started by a plain `docker compose up -d` - run
+  # `docker compose --profile tunnel up -d` instead, after generating
+  # proxy/.htpasswd (see README.md "Remote access").
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: chaintest-katalon-chainlp-tunnel
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate --url http://chainlp-tunnel-auth:80
+    depends_on:
+      - chainlp-tunnel-auth
+    # Intentionally not version-pinned like the other images here:
+    # cloudflared is Cloudflare's own edge-connecting client, and
+    # Cloudflare's guidance is to keep it current for protocol
+    # compatibility with their network, not to pin it like an
+    # application image.
+
+volumes:
+  chainlp-data:

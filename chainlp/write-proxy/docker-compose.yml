@@ -1,0 +1,32 @@
+# Standalone - does not depend on, or get started by, the main
+# chainlp/docker-compose.yml. Use this only if the ChainLP you're pushing
+# results to is NOT the one this bridge's own compose file brings up -
+# e.g. a real, already-existing ChainLP that your company hosts behind
+# its own login (SSO, a reverse proxy with basic auth, anything). See
+# ../README.md's "Writing to a ChainLP that's behind a login" section
+# for when and why this exists before using it.
+services:
+  chainlp-write-proxy:
+    image: nginx:1.27-alpine
+    container_name: chaintest-katalon-chainlp-write-proxy
+    ports:
+      # Bound to loopback only, deliberately - "8086:80" alone binds to
+      # every network interface on this machine (Docker's default), which
+      # would make this reachable from anyone on the same LAN/network via
+      # this machine's real IP, not just "localhost". Given this port is
+      # equivalent to the real remote password (see README.md), it must
+      # never be reachable from anywhere but this exact machine.
+      - "127.0.0.1:8086:80"
+    environment:
+      # The real ChainLP this container forwards to, and the exact
+      # Authorization header value it expects - e.g.:
+      #   CHAINLP_REMOTE_URL=https://chainlp.yourco.com
+      #   CHAINLP_REMOTE_AUTH_HEADER=Basic dXNlcjpwYXNz
+      # or, for a bearer/API-key style login:
+      #   CHAINLP_REMOTE_AUTH_HEADER=Bearer sk-...
+      # Set these in a local .env file (untracked - see .gitignore) or
+      # your shell environment, never committed here.
+      - CHAINLP_REMOTE_URL=${CHAINLP_REMOTE_URL:?set CHAINLP_REMOTE_URL before starting this}
+      - CHAINLP_REMOTE_AUTH_HEADER=${CHAINLP_REMOTE_AUTH_HEADER:?set CHAINLP_REMOTE_AUTH_HEADER before starting this}
+    volumes:
+      - ./templates:/etc/nginx/templates:ro

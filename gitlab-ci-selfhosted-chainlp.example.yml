@@ -1,0 +1,99 @@
+# Example GitLab CI config for a Katalon Studio project using the
+# ChainTest-Katalon Bridge WITH ChainLP - copy this into your project's
+# repo as .gitlab-ci.yml if you specifically want CI runs to push into
+# ChainLP, not just produce the static report.
+#
+# This uses Katalon's own official Docker image (katalonstudio/katalon),
+# the same one the plain gitlab-ci.example.yml in this repo uses - so
+# there's nothing to install on the runner machine itself beyond Docker,
+# and no local Katalon Studio path to point at.
+#
+# It's still a DIFFERENT setup from the plain gitlab-ci.example.yml,
+# though: that one targets GitLab.com's shared cloud runners (fine,
+# because it never needs to reach anything beyond the container itself).
+# This one needs a SELF-HOSTED runner on the same machine that's running
+# ChainLP, because ChainLP has no login of its own - see
+# chainlp/README.md's "ChainLP in CI" section for why that connection has
+# to be inherently trusted (same machine) rather than authenticated.
+#
+# Every <ANGLE_BRACKET> placeholder below is something to fill in with
+# your own value.
+#
+# ============================================================
+# One-time setup this file depends on, on the machine you're using as the
+# runner:
+# ============================================================
+#
+#   1. That machine needs Docker, and this bridge's chainlp/ Docker stack
+#      running:
+#        cd chaintest-katalon-bridge/chainlp
+#        docker compose up -d
+#      Note the port it's published on - 8085 by default, but check your
+#      own docker-compose.yml if you changed it.
+#
+#   2. Register a runner for YOUR project on that same machine, using the
+#      DOCKER executor (not shell) and any default image (it's overridden
+#      per-job by `image:` below anyway):
+#        GitLab: Settings > CI/CD > Runners > "New project runner"
+#        Give it a tag (this file assumes "self-hosted" - use your own and
+#        update `tags:` below to match).
+#
+#   3. Settings > CI/CD > Variables: add KATALON_API_KEY (masked) with
+#      your own Katalon Runtime Engine API key (Katalon Store > Profile
+#      > API Key). This is the same license mechanism either way -
+#      switching to this Docker-image approach doesn't change anything
+#      about how your license is used.
+#
+#   4. host.docker.internal (used below so the job's container can reach
+#      ChainLP on the host) resolves automatically on Docker Desktop for
+#      Windows/Mac. On native Linux Docker Engine it doesn't by default -
+#      add `extra_hosts: ["host.docker.internal:host-gateway"]` under the
+#      job below if your runner machine is Linux without Docker Desktop.
+#
+# Not independently verified against a real pipeline run in this exact
+# Docker-image form - the shell-executor + locally-installed Katalon
+# Studio variant (this repo's git history has it, if you'd rather use
+# that instead) was the one actually run end-to-end. This version swaps
+# in the same Docker-image pattern already proven by this bridge's own
+# plain gitlab-ci.example.yml, adapted for host.docker.internal
+# reachability - if something doesn't work, that networking step is the
+# first thing to check.
+#
+# ============================================================
+
+image: katalonstudio/katalon:11.4.0
+
+stages:
+  - test
+
+before_script:
+  - which git || (apt-get update && apt-get install -y git)
+  # TODO: replace <YOUR_BRIDGE_REPO_URL> with wherever you're hosting this
+  # bridge's own repo (a fork, your own copy, or the published one once
+  # you push/publish it). Once it's on npm, this whole before_script
+  # collapses to: npx chaintest-katalon-bridge install "$CI_PROJECT_DIR"
+  - git clone --depth 1 <YOUR_BRIDGE_REPO_URL> /tmp/chaintest-bridge
+  - bash /tmp/chaintest-bridge/Linux/install.sh "$CI_PROJECT_DIR"
+
+run_tests:
+  stage: test
+  tags:
+    - self-hosted        # must match the tag you gave the runner in step 2 above
+  variables:
+    CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"
+    # host.docker.internal, not localhost - the job runs inside this
+    # image's own container, which has its own network namespace, so
+    # "localhost" here would mean the container itself, not the host
+    # machine running ChainLP. Keep the port matching your own
+    # docker-compose.yml (8085 is this bridge's shipped default).
+    CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://host.docker.internal:8085/"
+  artifacts:
+    when: always
+    paths:
+      - Reports/
+      - chaintest-report/
+  script:
+    # Chrome, not Edge - this Linux image doesn't ship Edge at all.
+    # TODO: replace <YourSuite> with your actual Test Suite path, or use
+    # -testSuiteCollectionPath instead to run a whole collection.
+    - katalonc.sh -projectPath="$CI_PROJECT_DIR" -testSuitePath="Test Suites/<YourSuite>" -browserType="Chrome" -apiKey="$KATALON_API_KEY" -retry=0 --config -webui.autoUpdateDrivers=true -reportFolder="$CI_PROJECT_DIR/Reports"

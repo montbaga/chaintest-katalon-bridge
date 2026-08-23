@@ -1,0 +1,70 @@
+# Example GitLab CI config for a Katalon Studio project using the
+# ChainTest-Katalon Bridge. Copy this into your project's repo as
+# .gitlab-ci.yml, fill in the TODOs, and it's ready to run.
+#
+# Uses Katalon's own official Docker image (katalonstudio/katalon), which
+# ships Chrome and Firefox but not Edge - use -browserType="Chrome" here
+# rather than "Edge Chromium". If you specifically need Edge/Windows
+# parity with an Azure Pipelines setup, GitLab.com also offers a free-tier
+# Windows hosted runner (tag: saas-windows-medium-amd64) you can target
+# instead by downloading katalonc.exe the same way Azure Pipelines'
+# Marketplace task does internally.
+#
+# The bridge itself needs no configuration here: it auto-detects GitLab CI
+# from the standard GITLAB_CI / CI_PIPELINE_IID variables GitLab sets
+# automatically, so the generated report's System Info panel links back to
+# this exact pipeline with no setup required.
+#
+# This bridge isn't published to npm yet, so before_script installs it by
+# cloning its own repo and running install.sh directly - works today
+# regardless of npm publish status. Once it is published, replace that
+# clone+install with a single line:
+#   npx chaintest-katalon-bridge install "$CI_PROJECT_DIR"
+#
+# Katalon 11.4.0's OSGi bundles require JavaSE 21 (confirmed on hosted
+# Windows/Linux VM agents, which don't default to it) - this hasn't been
+# verified against katalonstudio/katalon's own Docker image specifically.
+# If the Katalon step below hangs or fails without a clear error, check the
+# image's own `java -version` first and install/select a JDK 21 explicitly
+# in before_script if it's older.
+#
+# It also isn't confirmed to include Node.js or git; before_script installs
+# git if missing and fetches a portable Node binary the same way, purely so
+# npx works once this bridge is published - not needed for the clone+
+# install.sh path used today.
+
+image: katalonstudio/katalon:11.4.0
+
+stages:
+  - test
+
+before_script:
+  - which git || (apt-get update && apt-get install -y git)
+  # TODO: replace <bridge-repo-url> with wherever you're hosting this
+  # bridge's own repo (a fork, your own copy, or the published one once
+  # you push/publish it).
+  - git clone --depth 1 <bridge-repo-url> /tmp/chaintest-bridge
+  - bash /tmp/chaintest-bridge/Linux/install.sh "$CI_PROJECT_DIR"
+
+run_tests:
+  stage: test
+  artifacts:
+    when: always
+    paths:
+      - Reports/
+      - chaintest-report/
+  script:
+    # TODO: replace <YourCollection> with your actual Test Suite Collection
+    # path, or swap -testSuiteCollectionPath for
+    # -testSuitePath="Test Suites/<YourSuite>" to run a single suite.
+    #
+    # Add KATALON_API_KEY under Settings > CI/CD > Variables in your
+    # project (mask it) - your Katalon Runtime Engine API key from Katalon
+    # Store > Profile > API Key.
+    - katalonc.sh -projectPath="$CI_PROJECT_DIR" -apiKey="$KATALON_API_KEY" -browserType="Chrome" -retry=0 -statusDelay=20 -executionProfile="default" --config -webui.autoUpdateDrivers=true -testSuiteCollectionPath="Test Suites/<YourCollection>" -reportFolder="$CI_PROJECT_DIR/Reports"
+
+# This example covers the zero-touch static report only. If you also want
+# CI to push into ChainLP, use gitlab-ci-selfhosted-chainlp.example.yml
+# instead - it needs a self-hosted runner on the same machine as ChainLP
+# (see chainlp/README.md's "ChainLP in CI" section for why), which a
+# shared GitLab.com runner like this one can't be.

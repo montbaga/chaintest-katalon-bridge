@@ -1,0 +1,31 @@
+[
+  {
+    "name": "Object Repository / Locator issues",
+    "matchedStatuses": ["FAILED", "ERROR"],
+    "messageRegex": ".*(Object|Element).*not found.*|.*NoSuchElementException.*"
+  },
+  {
+    "name": "Environment / Infrastructure issues",
+    "matchedStatuses": ["ERROR", "INCOMPLETE"],
+    "messageRegex": ".*(SessionNotCreatedException|UnreachableBrowserException|WebDriverException|ConnectException|SocketTimeoutException|UnknownHostException).*"
+  },
+  {
+    "name": "Timeouts",
+    "matchedStatuses": ["FAILED", "ERROR"],
+    "messageRegex": ".*TimeoutException.*"
+  },
+  {
+    "name": "Assertion failures (possible product defects)",
+    "matchedStatuses": ["FAILED"],
+    "messageRegex": ".*(AssertionError|ComparisonFailure|StepFailedException).*"
+  },
+  {
+    "name": "Script / test data issues",
+    "matchedStatuses": ["ERROR", "INCOMPLETE"],
+    "messageRegex": ".*(NullPointerException|GroovyRuntimeException|MissingPropertyException|MissingMethodException|NumberFormatException).*"
+  },
+  {
+    "name": "Skipped tests",
+    "matchedStatuses": ["SKIPPED"]
+  }
+]

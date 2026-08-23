@@ -1,0 +1,10 @@
+# Without this, a contributor's local core.autocrlf setting decides line
+# endings on checkout - on Windows with autocrlf=true (a common default),
+# a *.sh file would check out with CRLF and immediately break when run
+# via bash (`$'\r': command not found`, or a bad-interpreter error).
+# Force the correct ending per file type regardless of whose machine
+# clones this repo.
+* text=auto eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf

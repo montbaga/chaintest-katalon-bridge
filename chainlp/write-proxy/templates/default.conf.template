@@ -1,0 +1,45 @@
+server {
+    listen 80;
+
+    # Same reasoning as the main chainlp-proxy: a real test's payload
+    # (screenshots, verbose logs) can exceed nginx's 1m default and get
+    # rejected outright with 413 - confirmed against a real push earlier
+    # in this bridge's own development. Raise further if your tests
+    # attach larger media.
+    client_max_body_size 20m;
+
+    location / {
+        # A plain `proxy_pass <literal>` resolves DNS once, at startup,
+        # and then round-robins forever across every address it got back
+        # - including any AAAA/IPv6 record, even if this container has no
+        # outbound IPv6 route. Confirmed against a real remote target that
+        # published both: roughly half of all requests failed with
+        # "Network unreachable" until switched to this pattern - a
+        # variable in proxy_pass forces per-request resolution through
+        # the resolver below instead, with ipv6=off ruling out AAAA
+        # records entirely. valid=30s also means a real remote ChainLP's
+        # IP can change without needing to restart this container.
+        resolver 1.1.1.1 valid=30s ipv6=off;
+        set $chainlp_upstream ${CHAINLP_REMOTE_URL};
+
+        # The actual remote ChainLP, and the credential it expects -
+        # both supplied as environment variables when this container
+        # starts (see docker-compose.yml/README.md), never committed to
+        # a file. nginx's official image runs envsubst over every
+        # *.template file in this directory at startup, substituting
+        # ${VAR} references before nginx ever loads the result.
+        proxy_pass $chainlp_upstream;
+        proxy_set_header Authorization "${CHAINLP_REMOTE_AUTH_HEADER}";
+
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Needed for TLS upstreams that use SNI (i.e. almost any real
+        # HTTPS ChainLP behind a normal reverse proxy/load balancer) -
+        # without it, proxy_pass to an https:// upstream can fail or
+        # connect to the wrong virtual host.
+        proxy_ssl_server_name on;
+    }
+}
