@@ -226,7 +226,7 @@ underscores, e.g. `chaintest.generator.simple.output-file` ->
 | `chaintest.generator.simple.offline` | `true` | Bundle CSS/JS/fonts alongside the report instead of a CDN (one exception - see ARCHITECTURE.md) |
 | `chaintest.generator.simple.dark-theme` | `false` | Report colour theme |
 | `chaintest.generator.chainlp.enabled` | `false` | Also push results to a ChainLP server for real-time analytics/history - see below |
-| `chaintest.generator.chainlp.host.url` | `http://localhost/` | Where that ChainLP server is |
+| `chaintest.generator.chainlp.host.url` | `http://localhost:8085/` | Where that ChainLP server is - `8085` already matches this bridge's own `chainlp/docker-compose.yml` out of the box |
 
 ## Real-time analytics and history (ChainLP)
 

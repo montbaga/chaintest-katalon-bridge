@@ -150,7 +150,7 @@ class ChainTestConfig {
     }
 
     static String chainLPHostUrl() {
-        return read('chaintest.generator.chainlp.host.url', 'http://localhost/')
+        return read('chaintest.generator.chainlp.host.url', 'http://localhost:8085/')
     }
 
     static boolean chainLPPersistEmbeds() {
