@@ -100,14 +100,31 @@ force/remove-config flag shown above.
 
 ## What's next
 
-**You're already done.** Open Katalon Studio, run any Test Suite as
-usual, and a `chaintest-report/<Name>_<timestamp>/` folder appears
-automatically. Open its `Index.html` directly in a browser - no server,
-no further setup.
-
-**Want the extra real-time dashboard/history too (ChainLP)?** That's a
-separate, optional add-on - see [`chainlp/README.md`](chainlp/README.md).
-Skip it entirely if the static report above is all you need.
+1. **Reopen your Katalon project** in Katalon Studio (or refresh it if
+   already open).
+2. **Run any Test Suite as usual** - no changes needed to existing tests.
+3. **Check the static report** - a `chaintest-report/<Name>_<timestamp>/`
+   folder appears automatically. Open `Index.html` inside it directly in
+   a browser - no server, no further setup. **If this is all you wanted,
+   you're already finished - stop here.**
+4. **Only if you also want the real-time ChainLP dashboard**, pick
+   whichever of these two applies to you:
+   - **No ChainLP yet, or don't care about a password**: `cd chainlp`,
+     then `docker compose up -d`, then in `chaintest.properties`:
+     ```properties
+     chaintest.generator.chainlp.enabled=true
+     chaintest.generator.chainlp.host.url=http://localhost:8085/
+     ```
+   - **Your ChainLP already exists and has a login**: run
+     `chainlp/write-proxy/setup.sh` (or `.ps1`) once, answer its three
+     prompts, then:
+     ```properties
+     chaintest.generator.chainlp.enabled=true
+     chaintest.generator.chainlp.host.url=http://localhost:8086/
+     ```
+   See [`chainlp/README.md`](chainlp/README.md) for the full picture -
+   every scenario, every CI platform, all in one cheat sheet.
+5. **Run your tests again** - results now also appear in ChainLP.
 
 ## What the installer actually does
 
