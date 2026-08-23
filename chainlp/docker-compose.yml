@@ -56,8 +56,8 @@ services:
     depends_on:
       - chainlp-proxy
     volumes:
-      - ./proxy/tunnel-auth.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./proxy/.htpasswd:/etc/nginx/.htpasswd:ro
+      - ./remote-access/tunnel-auth.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./remote-access/.htpasswd:/etc/nginx/.htpasswd:ro
 
   # Optional: gives ChainLP a real, public HTTPS URL without any router/
   # firewall configuration, using Cloudflare's free "quick tunnel" (no
@@ -67,7 +67,7 @@ services:
   #
   # Not started by a plain `docker compose up -d` - run
   # `docker compose --profile tunnel up -d` instead, after generating
-  # proxy/.htpasswd (see README.md "Remote access").
+  # remote-access/.htpasswd (see README.md "Remote access").
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: chaintest-katalon-chainlp-tunnel

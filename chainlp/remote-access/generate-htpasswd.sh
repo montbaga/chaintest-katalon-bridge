@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Generates proxy/.htpasswd, the login required for remote (tunnel) access
-# to ChainLP. Local access on this machine (http://localhost:8085) never
-# needs this - only chainlp-tunnel-auth reads it.
+# Generates .htpasswd (in this same folder), the login required for
+# remote (tunnel) access to ChainLP. Local access on this machine
+# (http://localhost:8085) never needs this - only chainlp-tunnel-auth
+# reads it.
 #
 # Usage:
 #   ./generate-htpasswd.sh <username>
@@ -17,7 +18,7 @@ if [ -z "$USERNAME" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUT_FILE="$SCRIPT_DIR/proxy/.htpasswd"
+OUT_FILE="$SCRIPT_DIR/.htpasswd"
 
 read -r -s -p "Password for '$USERNAME': " PASSWORD
 echo ""
@@ -34,5 +35,5 @@ fi
 printf '%s' "$LINE" > "$OUT_FILE"
 echo "Wrote $OUT_FILE"
 echo ""
-echo "Next: docker compose --profile tunnel up -d"
+echo "Next, from the chainlp/ folder (one level up): docker compose --profile tunnel up -d"
 echo "(Re-run this script any time to change the password - it overwrites the file.)"

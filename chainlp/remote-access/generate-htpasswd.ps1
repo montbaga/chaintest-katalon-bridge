@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
-    Generates proxy/.htpasswd, the login required for remote (tunnel)
-    access to ChainLP. Local access on this machine (http://localhost:8085)
-    never needs this - only chainlp-tunnel-auth reads it.
+    Generates .htpasswd (in this same folder), the login required for
+    remote (tunnel) access to ChainLP. Local access on this machine
+    (http://localhost:8085) never needs this - only chainlp-tunnel-auth
+    reads it.
 
 .PARAMETER Username
     The username you'll type when the login prompt appears.
@@ -32,7 +33,7 @@ $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr
 [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
 
 $scriptDir = $PSScriptRoot
-$outFile = Join-Path $scriptDir 'proxy\.htpasswd'
+$outFile = Join-Path $scriptDir '.htpasswd'
 
 Write-Host "Generating bcrypt hash via a throwaway 'httpd:alpine' container (needs Docker, nothing installed locally)..."
 $line = docker run --rm httpd:alpine htpasswd -Bbn $Username $plainPassword
@@ -45,5 +46,5 @@ if (-not $line) {
 Set-Content -Path $outFile -Value $line -Encoding ascii -NoNewline
 Write-Host "Wrote $outFile"
 Write-Host ""
-Write-Host "Next: docker compose --profile tunnel up -d"
+Write-Host "Next, from the chainlp/ folder (one level up): docker compose --profile tunnel up -d"
 Write-Host "(Re-run this script any time to change the password - it overwrites the file.)"

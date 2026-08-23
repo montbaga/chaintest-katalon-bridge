@@ -121,7 +121,8 @@ CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://localhost:8085/
 Run your tests as usual - the static report still generates normally
 alongside this.
 
-## Known limitation (fixed by the proxy)
+<details>
+<summary><b>Known limitation (fixed by the proxy)</b> - background info, nothing to do here</summary>
 
 ChainLP's build-detail page shows 3 summary charts (pass/fail/skip counts
 per hierarchy level). To label them, its frontend looks up the test
@@ -169,6 +170,11 @@ under the `chainlp` service in `docker-compose.yml` and compare
 `localhost:8086` (direct, unpatched) against `localhost:8085` (through
 the proxy).
 
+</details>
+
+<details>
+<summary><b>Optional: viewing the dashboard from a different device</b> - skip this entirely if you only ever look at ChainLP from this same machine</summary>
+
 ## Remote access (viewing the dashboard from somewhere other than this machine)
 
 By default ChainLP is only reachable as `http://localhost:8085/` - fine if
@@ -190,8 +196,8 @@ built to always sit behind a login, with no way to start it without one.
 ```bash
 # 1. Choose a username/password for the login (only needed once, or
 #    whenever you want to change it):
-./generate-htpasswd.ps1 -Username yourname      # Windows
-./generate-htpasswd.sh yourname                 # macOS/Linux
+./remote-access/generate-htpasswd.ps1 -Username yourname      # Windows
+./remote-access/generate-htpasswd.sh yourname                 # macOS/Linux
 
 # 2. Start the tunnel (not started by plain `docker compose up -d`):
 docker compose --profile tunnel up -d
@@ -248,6 +254,11 @@ docker compose --profile tunnel down
 
 This stops and removes the tunnel and its login proxy; `chainlp` and
 `chainlp-proxy` (the always-on local path) keep running untouched.
+
+</details>
+
+<details>
+<summary><b>Optional: your real ChainLP already exists elsewhere and has a login</b> - skip this if you're just using the ChainLP this bridge brings up itself</summary>
 
 ## Writing to a ChainLP that's behind a login
 
@@ -345,6 +356,11 @@ the way the plain "ChainLP in CI" section below still requires.
 The credential itself lives only in `write-proxy/.env` on whichever
 machine runs this proxy (already gitignored) - it's never visible to
 Katalon, the bridge, or anything running inside your CI job.
+
+</details>
+
+<details>
+<summary><b>Optional: pushing to ChainLP from CI</b> - not needed for local runs; read this once you're setting up a pipeline</summary>
 
 ## ChainLP in CI
 
@@ -479,6 +495,11 @@ end; moving beyond them means hosting ChainLP on real shared
 infrastructure your cloud runners can reach - a separate, bigger decision
 each team makes for itself.
 
+</details>
+
+<details>
+<summary><b>Compatibility note</b> - background info, nothing to do here</summary>
+
 ## Compatibility note
 
 ChainTest's own published client/ChainLP compatibility matrix
@@ -489,6 +510,8 @@ above) via a real end-to-end run: builds, tests (including the full
 suite/test-case/step tree), tags, and timing all arrive correctly. The
 one gap found - the summary-chart rendering issue above - was in ChainLP's
 frontend, unrelated to the client/server wire protocol itself.
+
+</details>
 
 ## Removing it
 

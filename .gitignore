@@ -22,9 +22,9 @@ desktop.ini
 node_modules/
 *.tgz
 
-# Generated locally by chainlp/generate-htpasswd.* - a real credential,
-# never committed.
-chainlp/proxy/.htpasswd
+# Generated locally by chainlp/remote-access/generate-htpasswd.* - a real
+# credential, never committed.
+chainlp/remote-access/.htpasswd
 
 # Holds the real remote ChainLP credential for chainlp/write-proxy - see
 # that folder's docker-compose.yml. Never committed.

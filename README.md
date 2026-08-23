@@ -98,6 +98,17 @@ Uninstalling only removes what was installed, and keeps your
 `chaintest-results/`/`chaintest-report/` in place unless you pass the
 force/remove-config flag shown above.
 
+## What's next
+
+**You're already done.** Open Katalon Studio, run any Test Suite as
+usual, and a `chaintest-report/<Name>_<timestamp>/` folder appears
+automatically. Open its `Index.html` directly in a browser - no server,
+no further setup.
+
+**Want the extra real-time dashboard/history too (ChainLP)?** That's a
+separate, optional add-on - see [`chainlp/README.md`](chainlp/README.md).
+Skip it entirely if the static report above is all you need.
+
 ## What the installer actually does
 
 1. Verifies the target folder is a real Katalon project (looks for a
