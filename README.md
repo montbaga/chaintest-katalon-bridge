@@ -122,8 +122,15 @@ force/remove-config flag shown above.
      chaintest.generator.chainlp.enabled=true
      chaintest.generator.chainlp.host.url=http://localhost:8086/
      ```
-   See [`chainlp/README.md`](chainlp/README.md) for the full picture -
-   every scenario, every CI platform, all in one cheat sheet.
+   The `8085`/`8086` shown above are just this bridge's defaults, not
+   guaranteed-free ports - **if `docker compose up -d` fails because
+   something else on your machine is already using one, you have to set
+   a different port yourself** in both the relevant `docker-compose.yml`
+   and the `chaintest.properties` line above, kept in sync. This isn't
+   automatic - see [`chainlp/README.md`](chainlp/README.md)'s "Bring it
+   up" section for exactly where.
+   See `chainlp/README.md` for the full picture - every scenario, every
+   CI platform, all in one cheat sheet.
 5. **Run your tests again** - results now also appear in ChainLP.
 
 ## What the installer actually does
@@ -227,6 +234,13 @@ underscores, e.g. `chaintest.generator.simple.output-file` ->
 | `chaintest.generator.simple.dark-theme` | `false` | Report colour theme |
 | `chaintest.generator.chainlp.enabled` | `false` | Also push results to a ChainLP server for real-time analytics/history - see below |
 | `chaintest.generator.chainlp.host.url` | `http://localhost:8085/` | Where that ChainLP server is - `8085` already matches this bridge's own `chainlp/docker-compose.yml` out of the box |
+
+**`8085` is a default, not a guaranteed-free port.** If something else on
+your machine is already using it, **you have to set this value yourself**
+- it will not be picked automatically. See
+[`chainlp/README.md`](chainlp/README.md)'s "Bring it up" section for the
+exact two places to change (the compose file's port mapping, then this
+same property) so they stay in sync.
 
 ## Real-time analytics and history (ChainLP)
 
