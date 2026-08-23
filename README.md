@@ -107,23 +107,37 @@ force/remove-config flag shown above.
    folder appears automatically. Open `Index.html` inside it directly in
    a browser - no server, no further setup. **If this is all you wanted,
    you're already finished - stop here.**
-4. **Only if you also want the real-time ChainLP dashboard**, pick
-   whichever of these two applies to you. In both cases, **you have to
-   set these two values yourself** in
-   **`Include/config/chaintest/chaintest.properties` inside your Katalon
-   project** - the one you just installed the bridge into, not this
-   bridge's own repo - nothing here is set for you automatically:
-   - **No ChainLP yet, or don't care about a password**: `cd chainlp`,
-     then `docker compose up -d`, then set these in your Katalon
-     project's `Include/config/chaintest/chaintest.properties`:
+4. **Only if you also want the real-time ChainLP dashboard**, this step
+   touches **two different folders** - don't mix them up:
+
+   - **This bridge's own folder** - wherever you downloaded/cloned *this*
+     `ChainTestKatalonBridge` project (not your Katalon project). This is
+     where `chainlp/` lives, and where `cd chainlp` below actually goes.
+
+   - **Your Katalon project** - the one you ran `install` against in the
+     steps above. This is where you have to **set**
+     `Include/config/chaintest/chaintest.properties` - nothing here is
+     set for you automatically.
+
+   Pick whichever of these two applies to you:
+
+   - **No ChainLP yet, or don't care about a password**: in **this
+     bridge's own folder**, run:
+     ```
+     cd chainlp
+     docker compose up -d
+     ```
+     then, in **your Katalon project's**
+     `Include/config/chaintest/chaintest.properties`, set:
      ```properties
      chaintest.generator.chainlp.enabled=true
      chaintest.generator.chainlp.host.url=http://localhost:8085/
      ```
-   - **Your ChainLP already exists and has a login**: run
-     `chainlp/write-proxy/setup.sh` (or `.ps1`) once, answer its three
-     prompts, then set these in that same
-     `Include/config/chaintest/chaintest.properties` file:
+
+   - **Your ChainLP already exists and has a login**: in **this bridge's
+     own folder**, run `chainlp/write-proxy/setup.sh` (or `.ps1`) once
+     and answer its three prompts, then, in **your Katalon project's**
+     same `chaintest.properties` file, set:
      ```properties
      chaintest.generator.chainlp.enabled=true
      chaintest.generator.chainlp.host.url=http://localhost:8086/
