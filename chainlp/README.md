@@ -518,6 +518,24 @@ end; moving beyond them means hosting ChainLP on real shared
 infrastructure your cloud runners can reach - a separate, bigger decision
 each team makes for itself.
 
+### From one machine to a real company deployment
+
+Everything above is written for **one machine** - your own laptop or
+workstation, acting as both the ChainLP host and the CI runner at once.
+That's the right way to first prove this works, but a real team's setup
+usually isn't one machine. Nothing about the bridge's own settings
+changes - only the values you put into them. Same pieces, same commands,
+different machine each value points at:
+
+| Piece | On one machine (this guide) | At company scale | Why it changes |
+|---|---|---|---|
+| Run ChainLP | `cd chainlp && docker compose up -d` on your own laptop | Identical command, run once on a dedicated always-on server instead of a laptop | A laptop gets turned off; a team dashboard needs to be there any time anyone checks it |
+| ChainLP's address | `http://localhost:8085/` | A real internal address, e.g. `http://chainlp.internal.yourcompany.com/`, reachable over your company's VPN/private network | `localhost` only ever means "this one machine" - meaningless to a second person or a second server |
+| Register the CI runner | Self-hosted runner registered on that same laptop (Docker executor) | Self-hosted runner(s) on your company's own CI infrastructure, inside the same private network as ChainLP - not any one person's laptop | The rule is "no login, but only trusted machines may write" - the trust boundary just gets bigger, from "this laptop" to "our private network" |
+| Point CI at ChainLP | `CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://host.docker.internal:8085/` | `CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://chainlp.internal.yourcompany.com/` | `host.docker.internal` only means anything when ChainLP happens to sit on the exact same physical machine as the runner's container - a separate real server needs its own real address instead |
+| ChainLP already has a login you don't control | `chainlp/write-proxy/setup.sh`, pointed at a temporary Cloudflare Tunnel URL + basic-auth login (a stand-in for "a real remote ChainLP behind a login", used to prove this feature against a genuine login) | The exact same `chainlp/write-proxy/setup.sh`, pointed at your company's real existing ChainLP URL and real credential | The write-proxy itself never changes - only which real system it's pointed at |
+| Viewing the dashboard from elsewhere | `docker compose --profile tunnel up -d`, then `docker logs chaintest-katalon-chainlp-tunnel 2>&1 \| grep trycloudflare` for a temporary public URL (changes every restart) | Just open the real internal URL directly - no tunnel needed at all | Cloudflare Tunnel exists specifically to expose a laptop to the public internet temporarily; a server already sitting on the company network doesn't need that trick |
+
 </details>
 
 <details>
