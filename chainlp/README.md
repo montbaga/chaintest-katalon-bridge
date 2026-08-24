@@ -88,6 +88,139 @@ Whichever platform you're on, once the runner/agent is registered and the
 two variables above are set as CI secrets, the rest of this page applies
 exactly as written.
 
+## Step-by-step setup: pick your scenario
+
+Two different kinds of people touch this, and most readers are only ever
+one of them:
+
+- **Whoever sets up ChainLP/CI once** - a platform/DevOps team at a real
+  company, or just you, alone, if you're trying this out solo.
+- **Each individual project** that turns ChainLP on for itself - a
+  five-minute task that happens once per project, done by whoever owns
+  that project.
+
+Every step below is labeled with exactly where it happens -
+**[project]** (inside the Katalon project you installed the bridge
+into), **[bridge repo]** (inside `chaintest-katalon-bridge`'s own
+`chainlp/` folder), or **[CI platform settings]** (a web UI, not a file
+at all) - and who normally does it. Read through the steps that aren't
+yours too; understanding the whole chain is what the rest of this
+document assumes.
+
+**First, find your scenario:**
+
+| Your situation | Go to |
+|---|---|
+| Don't want ChainLP at all | Nowhere - the static report needs none of this |
+| Solo, testing on your own machine, no CI yet | Scenario A |
+| Solo + want CI (same machine) to push to ChainLP too, no password | Scenario B |
+| Same as B, but your ChainLP has a password | Scenario C |
+| Joining a team/company whose ChainLP already exists | Scenario D |
+| Setting up ChainLP for your team/company, for others to use | Scenario E |
+
+### Scenario A - solo, testing on your own machine
+
+1. **[bridge repo]**, `chainlp/` folder. Who: you.
+   ```bash
+   cd chainlp
+   docker compose up -d
+   ```
+2. **[project]**, `Include/config/chaintest/chaintest.properties`. Who: you.
+   ```properties
+   chaintest.generator.chainlp.enabled=true
+   chaintest.generator.chainlp.host.url=http://localhost:8085/
+   ```
+3. Run your tests, open `http://localhost:8085/` to confirm the build shows up.
+
+### Scenario B - solo + CI on that same machine, no password
+
+Do Scenario A first, then:
+
+4. **[CI platform settings]**. Who: you. Register a **self-hosted**
+   runner/agent on this same machine, **Docker** executor (GitLab:
+   *Settings → CI/CD → Runners → New project runner*).
+5. **[CI platform settings]**. Who: you. Add your Katalon Runtime Engine
+   API key as a masked variable named `KATALON_API_KEY`.
+6. **[project]**, repo root. Who: you. Copy
+   [`gitlab-ci-selfhosted-chainlp.example.yml`](../gitlab-ci-selfhosted-chainlp.example.yml)
+   from the bridge repo in as `.gitlab-ci.yml`, fill in its
+   `<ANGLE_BRACKET>` placeholders (bridge repo URL, test suite path,
+   runner tag), and set:
+   ```yaml
+   variables:
+     CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"
+     CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://host.docker.internal:8085/"
+   ```
+7. `git push` - the pipeline runs, results appear in ChainLP.
+
+### Scenario C - solo + CI, ChainLP has a password
+
+Same as Scenario B, with two changes:
+
+4a. **[bridge repo]**, `chainlp/write-proxy/`. Who: you (you're playing
+    both roles here). Run once:
+    ```bash
+    cd chainlp/write-proxy
+    ./setup.sh   # or setup.ps1 on Windows
+    ```
+    Answer its prompts with the real ChainLP URL and credential.
+
+6a. Use port `8086` instead of `8085` everywhere in step 2 and step 6
+    above (`http://localhost:8086/` locally, `http://host.docker.internal:8086/`
+    in `.gitlab-ci.yml`).
+
+### Scenario D - joining a team whose ChainLP already exists (the common case for an individual at a real company)
+
+You only ever touch **[project]** files here - nothing in the bridge
+repo, nothing in CI platform settings; someone already did those under
+Scenario E.
+
+1. **[project]**, `Include/config/chaintest/chaintest.properties`. Who:
+   you. Ask your platform/DevOps team for the real address first:
+   ```properties
+   chaintest.generator.chainlp.enabled=true
+   chaintest.generator.chainlp.host.url=http://chainlp.internal.yourco.com/
+   ```
+2. **[project]**, repo root. Who: you, only if your repo doesn't already
+   have a working pipeline. Copy
+   [`gitlab-ci.example.yml`](../gitlab-ci.example.yml) in (**not** the
+   self-hosted variant - your company's runners are already correctly
+   placed by Scenario E) as `.gitlab-ci.yml`, fill in your test suite
+   path. `KATALON_API_KEY` is usually already set company-wide - check
+   with your platform team before adding your own.
+3. `git push`, confirm the build shows up at the address from step 1.
+
+### Scenario E - setting up ChainLP for your team/company
+
+Everyone in Scenario D depends on you doing this once.
+
+1. **[bridge repo]**. Who: platform/DevOps team. Get it onto a real
+   server, not a laptop:
+   ```bash
+   git clone https://github.com/montbaga/chaintest-katalon-bridge
+   cd chaintest-katalon-bridge/chainlp
+   docker compose up -d
+   ```
+2. If port `8085` conflicts with something already on that server:
+   **[bridge repo]**, `chainlp/docker-compose.yml` - change the
+   `"127.0.0.1:8085:80"` line under `chainlp-proxy`.
+3. Give it a real internal address - **outside the bridge entirely**,
+   in your company's own DNS or reverse-proxy config: point
+   `chainlp.internal.yourco.com` at that server (see "Before anything
+   else: two addresses, one rule" above for the reasoning).
+4. **[CI platform settings]**. Register your company's CI runner(s) on
+   the *same private network* as that server.
+5. **[CI platform settings]**. Add `KATALON_API_KEY` once, at the
+   group/org level, so individual projects (Scenario D) never need
+   their own.
+6. If this ChainLP should sit behind a login for people viewing it, see
+   "Remote access" below. If instead it's a *different*, already-existing
+   ChainLP you don't own that you're relaying through, see "Writing to a
+   ChainLP that's behind a login" and run `chainlp/write-proxy/setup.sh`
+   once, on the runner machine.
+7. Tell your team the address from step 3 - that's the only thing
+   Scenario D needs from you.
+
 ## Bring it up
 
 ```bash
