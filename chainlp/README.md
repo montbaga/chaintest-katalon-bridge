@@ -44,33 +44,38 @@ not just your one piece.
 
 | # | Where | Who | Do this |
 |---|---|---|---|
-| 1 | **[bridge repo]**, `chainlp/` folder | You | `cd chainlp`<br>`./up.sh` (or `.\up.ps1` on Windows) - retries automatically if `8085` is taken |
-| 2 | **[project]**, `Include/config/chaintest/chaintest.properties` | You | `chaintest.generator.chainlp.enabled=true`<br>`chaintest.generator.chainlp.host.url=http://localhost:8085/` |
-| 3 | - | You | Run your tests, open `http://localhost:8085/` - your build should be there |
+| 1 | **[bridge repo]**, `chainlp/` folder | You | `cd chainlp`<br>`./up.sh` (or `.\up.ps1` on Windows). Normally lands on `8085`; if that's taken it retries on `8090`/`8095`/`8100`/`8105` automatically and tells you which one it used |
+| 2 | **[project]**, `Include/config/chaintest/chaintest.properties` | You | Use the exact URL step 1 printed - normally:<br>`chaintest.generator.chainlp.enabled=true`<br>`chaintest.generator.chainlp.host.url=http://localhost:8085/`<br>(if step 1 had to fall back, use that port here instead of `8085`) |
+| 3 | - | You | Run your tests, open the same URL from step 1/2 in a browser - your build should be there |
 
 [↑ back to scenario picker](#find-your-scenario)
 
 ### Scenario B: add CI, no password needed
 
-Do Scenario A first. Then:
-
 | # | Where | Who | Do this |
 |---|---|---|---|
+| 1 | **[bridge repo]**, `chainlp/` folder | You | `cd chainlp`<br>`./up.sh` (or `.\up.ps1` on Windows). Normally lands on `8085`; if that's taken it retries on `8090`/`8095`/`8100`/`8105` automatically and tells you which one it used |
+| 2 | **[project]**, `Include/config/chaintest/chaintest.properties` | You | Use the exact URL step 1 printed - normally:<br>`chaintest.generator.chainlp.enabled=true`<br>`chaintest.generator.chainlp.host.url=http://localhost:8085/`<br>(if step 1 had to fall back, use that port here instead of `8085`) |
+| 3 | - | You | Run your tests, open the same URL from step 1/2 in a browser - your build should be there |
 | 4 | **[CI settings]** | You | Register a **self-hosted** runner/agent on this same machine, **Docker** executor (GitLab: *Settings → CI/CD → Runners → New project runner*) |
 | 5 | **[CI settings]** | You | Add your Katalon Runtime Engine API key as a masked variable named `KATALON_API_KEY` |
-| 6 | **[project]**, repo root | You | Copy [`gitlab-ci-selfhosted-chainlp.example.yml`](../gitlab-ci-selfhosted-chainlp.example.yml) in as `.gitlab-ci.yml`, fill in its `<ANGLE_BRACKET>` placeholders, and set:<br>`CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"`<br>`CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://host.docker.internal:8085/"` |
+| 6 | **[project]**, repo root | You | Copy [`gitlab-ci-selfhosted-chainlp.example.yml`](../gitlab-ci-selfhosted-chainlp.example.yml) in as `.gitlab-ci.yml`, fill in its `<ANGLE_BRACKET>` placeholders, and set (same port as step 1/2, normally `8085`):<br>`CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"`<br>`CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://host.docker.internal:8085/"`<br>(if you leave this as `localhost` by mistake, the bridge now tries `host.docker.internal` automatically as a fallback and logs when it does - but setting it explicitly here is still clearer) |
 | 7 | - | You | `git push` - the pipeline runs, results appear in ChainLP |
 
 [↑ back to scenario picker](#find-your-scenario)
 
 ### Scenario C: add CI, ChainLP needs a password
 
-Same as Scenario B, with two changes:
+This one does **not** need your own local ChainLP (Scenario A/B's `up.sh`) at all - you're relaying to a *different*, already-existing ChainLP that has a login, not running your own unprotected one.
 
 | # | Where | Who | Do this |
 |---|---|---|---|
-| 4a | **[bridge repo]**, `chainlp/write-proxy/` | You (you're playing both roles here) | `cd chainlp/write-proxy`<br>`./setup.sh` (or `setup.ps1` on Windows) - answer its prompts with the real ChainLP URL and credential |
-| 6a | **[project]** + `.gitlab-ci.yml` | You | Use port `8086` instead of `8085` everywhere from Scenario B step 2 and step 6 |
+| 1 | **[CI settings]** | You | Register a **self-hosted** runner/agent on this machine, **Docker** executor (GitLab: *Settings → CI/CD → Runners → New project runner*) |
+| 2 | **[CI settings]** | You | Add your Katalon Runtime Engine API key as a masked variable named `KATALON_API_KEY` |
+| 3 | **[bridge repo]**, `chainlp/write-proxy/` | You (you're playing both roles here) | `cd chainlp/write-proxy`<br>`./setup.sh` (or `setup.ps1` on Windows) - answer its prompts with the real ChainLP URL and credential. Normally lands on `8086`; if that's taken it retries on `8091`/`8096`/`8101`/`8106` automatically and tells you which one it used |
+| 4 | **[project]**, `Include/config/chaintest/chaintest.properties` | You | Use the exact URL step 3 printed - normally:<br>`chaintest.generator.chainlp.enabled=true`<br>`chaintest.generator.chainlp.host.url=http://localhost:8086/`<br>(if step 3 had to fall back, use that port here instead of `8086`) |
+| 5 | **[project]**, repo root | You | Copy [`gitlab-ci-selfhosted-chainlp.example.yml`](../gitlab-ci-selfhosted-chainlp.example.yml) in as `.gitlab-ci.yml`, fill in its `<ANGLE_BRACKET>` placeholders, and set (same port as step 3/4, normally `8086`):<br>`CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"`<br>`CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://host.docker.internal:8086/"` |
+| 6 | - | You | `git push` - the pipeline runs, results appear in ChainLP through the write-proxy |
 
 [↑ back to scenario picker](#find-your-scenario)
 
@@ -110,6 +115,14 @@ This is the part people trip over most, so here it is on its own,
 answering exactly these questions in order: what `docker-compose.yml` is
 even doing, whether it's something you personally need to touch, which
 port to use, and what to do if one isn't free.
+
+**`8085` and `8086` everywhere in this document are the typical
+defaults, not a guarantee.** They're what `up.sh` and `write-proxy/setup.sh`
+land on the vast majority of the time, which is why every scenario above
+shows them. The one value that's always actually correct is whatever
+that script printed when you ran it - if it had to fall back to a
+different port, use that number instead, everywhere `8085`/`8086`
+appears below.
 
 **What is `chainlp/docker-compose.yml` actually doing?**
 It's a small config file - not code, nothing to program - that tells
