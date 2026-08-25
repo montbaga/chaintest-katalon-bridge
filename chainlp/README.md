@@ -100,7 +100,7 @@ nothing in CI settings; someone already did Scenario E for you.
 | # | Where | Who | Do this |
 |---|---|---|---|
 | 1 | **[project]**, `Include/config/chaintest/chaintest.properties` | You | Ask your platform/DevOps team for the real address, then:<br>`chaintest.generator.chainlp.enabled=true`<br>`chaintest.generator.chainlp.host.url=http://chainlp.internal.yourco.com/` |
-| 2 | **[project]**, repo root | You - only if your repo has no pipeline yet | Copy [`gitlab-ci.example.yml`](../gitlab-ci.example.yml) in (**not** the self-hosted variant) as `.gitlab-ci.yml`, fill in your test suite path. `KATALON_API_KEY` is usually already set company-wide - check before adding your own |
+| 2 | **[project]**, repo root | You - only if your repo has no pipeline yet | Copy [`gitlab-ci.example.yml`](../gitlab-ci.example.yml) in (**not** the self-hosted variant) as `.gitlab-ci.yml`, fill in your test suite path. That file only produces the static report by default - add these two lines under `run_tests:` yourself, using the same address as step 1:<br>`variables:`<br>`  CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"`<br>`  CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://chainlp.internal.yourco.com/"`<br>`KATALON_API_KEY` is usually already set company-wide - check before adding your own |
 | 3 | - | You | `git push`, confirm the build shows up at the address from step 1 |
 
 [↑ back to scenario picker](#find-your-scenario)
