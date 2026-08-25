@@ -125,30 +125,38 @@ force/remove-config flag shown above.
      bridge's own folder**, run:
      ```
      cd chainlp
-     docker compose up -d
+     ./up.sh     # macOS/Linux
+     .\up.ps1    # Windows
      ```
-     then, in **your Katalon project's**
+     it prints the exact URL to use once ChainLP is up - normally
+     `http://localhost:8085/`, but it retries automatically on a
+     different port if `8085` is already taken on your machine, so use
+     whatever it actually printed. Then, in **your Katalon project's**
      `Include/config/chaintest/chaintest.properties`, set:
      ```properties
      chaintest.generator.chainlp.enabled=true
      chaintest.generator.chainlp.host.url=http://localhost:8085/
      ```
+     (matching the port from the line above)
 
    - **Your ChainLP already exists and has a login**: in **this bridge's
      own folder**, run `chainlp/write-proxy/setup.sh` (or `.ps1`) once
-     and answer its three prompts, then, in **your Katalon project's**
-     same `chaintest.properties` file, set:
+     and answer its three prompts - it also retries automatically on a
+     different port if `8086` is taken, and prints the exact URL to use.
+     Then, in **your Katalon project's** same `chaintest.properties`
+     file, set:
      ```properties
      chaintest.generator.chainlp.enabled=true
      chaintest.generator.chainlp.host.url=http://localhost:8086/
      ```
-   The `8085`/`8086` shown above are just this bridge's defaults, not
-   guaranteed-free ports - **if `docker compose up -d` fails because
-   something else on your machine is already using one, you have to set
-   a different port yourself** in both the relevant `docker-compose.yml`
-   and the `chaintest.properties` line above, kept in sync. This isn't
-   automatic - see [`chainlp/README.md`](chainlp/README.md)'s "Bring it
-   up" section for exactly where.
+     (matching whatever port the script printed)
+
+   `8085`/`8086` above are just this bridge's typical defaults, not
+   guaranteed-free ports - **port conflicts are now handled for you
+   automatically** by the scripts above, so you shouldn't need to do
+   anything by hand for this. See [`chainlp/README.md`](chainlp/README.md)'s
+   "Ports 8085 and 8086, plainly" section only if every automatic
+   candidate port is also taken (rare).
    See `chainlp/README.md` for the full picture - every scenario, every
    CI platform, all in one cheat sheet.
 5. **Run your tests again** - results now also appear in ChainLP.
@@ -255,12 +263,13 @@ underscores, e.g. `chaintest.generator.simple.output-file` ->
 | `chaintest.generator.chainlp.enabled` | `false` | Also push results to a ChainLP server for real-time analytics/history - see below |
 | `chaintest.generator.chainlp.host.url` | `http://localhost:8085/` | Where that ChainLP server is - `8085` already matches this bridge's own `chainlp/docker-compose.yml` out of the box |
 
-**`8085` is a default, not a guaranteed-free port.** If something else on
-your machine is already using it, **you have to set this value yourself**
-- it will not be picked automatically. See
-[`chainlp/README.md`](chainlp/README.md)'s "Bring it up" section for the
-exact two places to change (the compose file's port mapping, then this
-same property) so they stay in sync.
+**`8085` is a default, not a guaranteed-free port** - but you don't need
+to manage that yourself: starting ChainLP with `chainlp/up.sh` (or
+`.\up.ps1`) automatically retries on a different port if `8085` is
+already taken, and tells you exactly which URL to put here. Only if
+every automatic candidate port is also taken (rare) do you need to set
+one yourself - see [`chainlp/README.md`](chainlp/README.md)'s "Ports
+8085 and 8086, plainly" section for that case.
 
 ## Real-time analytics and history (ChainLP)
 

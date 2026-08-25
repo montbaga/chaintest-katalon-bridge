@@ -27,9 +27,10 @@
 #   1. That machine needs Docker, and this bridge's chainlp/ Docker stack
 #      running:
 #        cd chaintest-katalon-bridge/chainlp
-#        docker compose up -d
-#      Note the port it's published on - 8085 by default, but check your
-#      own docker-compose.yml if you changed it.
+#        ./up.sh      (or .\up.ps1 on Windows)
+#      It prints the exact port ChainLP landed on - normally 8085, but it
+#      retries automatically on a different one if that's already taken,
+#      so use whatever it actually printed below instead of assuming 8085.
 #
 #   2. Register a runner for YOUR project on that same machine, using the
 #      DOCKER executor (not shell) and any default image (it's overridden
