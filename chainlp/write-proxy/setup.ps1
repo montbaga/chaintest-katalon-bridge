@@ -15,6 +15,12 @@ Write-Host "========================="
 Write-Host ""
 
 $remoteUrl = Read-Host "Real ChainLP URL (e.g. https://chainlp.yourco.com)"
+# Strip a trailing slash - nginx's proxy_pass treats any URI baked into
+# $chainlp_upstream (even just "/") as an override for every request's
+# path, silently sending "/" instead of the real endpoint on every push.
+# Confirmed directly: a URL ending in "/" here causes every ChainLP write
+# to arrive at "/" instead of its real API path, failing with 405.
+$remoteUrl = $remoteUrl.TrimEnd('/')
 
 Write-Host ""
 Write-Host "How does that ChainLP log you in?"

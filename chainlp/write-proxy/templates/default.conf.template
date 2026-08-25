@@ -30,6 +30,7 @@ server {
         # ${VAR} references before nginx ever loads the result.
         proxy_pass $chainlp_upstream;
         proxy_set_header Authorization "${CHAINLP_REMOTE_AUTH_HEADER}";
+        proxy_http_version 1.1;
 
         proxy_set_header Host $proxy_host;
         proxy_set_header X-Real-IP $remote_addr;

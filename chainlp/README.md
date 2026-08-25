@@ -543,7 +543,9 @@ pipeline. Re-run it any time to change the URL or credential.
 
 The only manual step here, ever, is typing in your real credential -
 nobody else can know that. Everything else (the encoding, the file, the
-container) is one command, once.
+container) is one command, once. The script also strips a trailing `/`
+from whatever URL you paste in - see the warning below for why that
+matters.
 
 <details>
 <summary>Doing it by hand instead (if you'd rather not run the script)</summary>
@@ -553,12 +555,21 @@ cd write-proxy
 
 # Real ChainLP address, and the exact Authorization header value it
 # expects - e.g. for basic auth, base64-encode "user:password" yourself
-# first (setup.sh/.ps1 does this step for you; doing it by hand doesn't):
+# first (setup.sh/.ps1 does this step for you; doing it by hand doesn't).
+# No trailing slash - see the warning right below this block for why.
 echo 'CHAINLP_REMOTE_URL=https://chainlp.yourco.com' > .env
 echo 'CHAINLP_REMOTE_AUTH_HEADER=Basic dXNlcjpwYXNz' >> .env
 
 docker compose up -d
 ```
+
+**No trailing slash on `CHAINLP_REMOTE_URL`, ever.** `https://chainlp.yourco.com/`
+(with a trailing `/`) silently breaks every push: nginx's `proxy_pass`
+treats that `/` as an override for the request path, so every write
+lands on ChainLP's root page instead of its real API endpoint, failing
+with a `405 Method Not Allowed` you'd otherwise have no reason to
+connect back to this. `setup.sh`/`.ps1` strip it automatically -
+this only bites you doing it by hand.
 </details>
 
 Then point the bridge at *this proxy*, never at the real remote URL
