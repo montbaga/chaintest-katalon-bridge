@@ -97,44 +97,14 @@ The most common case for an individual joining an existing team. You
 only ever touch **[project]** files - nothing in the bridge repo,
 nothing in CI settings; someone already did Scenario E for you.
 
-**Step 1 - point your local run at it.** Ask your platform/DevOps team
-for the real address first - there's no way to guess it. In
-**[project]**, `Include/config/chaintest/chaintest.properties`:
-```properties
-chaintest.generator.chainlp.enabled=true
-chaintest.generator.chainlp.host.url=http://chainlp.internal.yourco.com/
-```
-Run any Test Suite, then open that same URL in a browser - your build
-should already be there before you touch CI at all.
-
-**Step 2 - wire up CI.** This branches depending on what your repo
-already has, in **[project]**, repo root:
-
-- **No `.gitlab-ci.yml` yet** - copy
-  [`gitlab-ci-chainlp.example.yml`](../gitlab-ci-chainlp.example.yml) in
-  as `.gitlab-ci.yml`. It already has the two ChainLP variables built in
-  - just fill in its `<YourSuite>` placeholder and set
-  `CHAINTEST_GENERATOR_CHAINLP_HOST_URL` to the same address as step 1.
-  If your project's bridge files (`Test Listeners/`, `Keywords/chaintest/`,
-  `Include/config/chaintest/`) are already committed to git, delete the
-  file's `before_script:` block entirely - it isn't needed.
-- **Already have a `.gitlab-ci.yml`** - don't replace it, just add these
-  two lines as a new `variables:` key under your existing test job (same
-  indentation level as `stage:`/`script:`):
-  ```yaml
-  variables:
-    CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"
-    CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://chainlp.internal.yourco.com/"
-  ```
-
-**Step 3 - the license key.** Check **Settings → CI/CD → Variables** in
-GitLab first - `KATALON_API_KEY` is usually already set company-wide by
-whoever did Scenario E, since it's the same key for every project. Only
-add your own if it's genuinely missing.
-
-**Step 4 - confirm.** `git push`, then refresh the URL from step 1 - a
-new build should appear, pushed by CI using the exact same address you
-already confirmed working locally.
+| # | Where | Who | Do this |
+|---|---|---|---|
+| 1 | **[project]**, `Include/config/chaintest/chaintest.properties` | You | Ask your platform/DevOps team for the real address first - there's no way to guess it. Then:<br>`chaintest.generator.chainlp.enabled=true`<br>`chaintest.generator.chainlp.host.url=http://chainlp.internal.yourco.com/` |
+| 2 | - | You | Run any Test Suite, then open that same URL in a browser - your build should already be there before you touch CI at all |
+| 3a | **[project]**, repo root - only if you have **no** `.gitlab-ci.yml` yet | You | Copy [`gitlab-ci-chainlp.example.yml`](../gitlab-ci-chainlp.example.yml) in as `.gitlab-ci.yml`. Fill in its `<YourSuite>` placeholder and set `CHAINTEST_GENERATOR_CHAINLP_HOST_URL` to the same address as step 1. If your project's bridge files (`Test Listeners/`, `Keywords/chaintest/`, `Include/config/chaintest/`) are already committed to git, delete the file's `before_script:` block entirely - it isn't needed |
+| 3b | **[project]**, your existing `.gitlab-ci.yml` - only if you already have one | You | Don't replace it - add these two lines as a new `variables:` key under your existing test job (same indentation as `stage:`/`script:`):<br>`variables:`<br>`  CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"`<br>`  CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://chainlp.internal.yourco.com/"` |
+| 4 | **[CI settings]** | You | Check **Settings → CI/CD → Variables** first - `KATALON_API_KEY` is usually already set company-wide by whoever did Scenario E. Only add your own if it's genuinely missing |
+| 5 | - | You | `git push`, then refresh the URL from step 1 - a new build should appear, pushed by CI using the exact same address you already confirmed working locally |
 
 [↑ back to scenario picker](#find-your-scenario)
 
