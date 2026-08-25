@@ -62,6 +62,18 @@ not just your one piece.
 | 6 | **[project]**, repo root | You | Copy [`gitlab-ci-selfhosted-chainlp.example.yml`](../gitlab-ci-selfhosted-chainlp.example.yml) in as `.gitlab-ci.yml`, fill in its `<ANGLE_BRACKET>` placeholders, and set (same port as step 1/2, normally `8085`):<br>`CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"`<br>`CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://host.docker.internal:8085/"`<br>(if you leave this as `localhost` by mistake, the bridge now tries `host.docker.internal` automatically as a fallback and logs when it does - but setting it explicitly here is still clearer) |
 | 7 | - | You | `git push` - the pipeline runs, results appear in ChainLP |
 
+**Everything in this scenario runs on one machine - yours.** ChainLP
+(step 1) and the self-hosted runner (step 4) both live here; that's the
+whole reason `host.docker.internal` works at all in step 6 - it's this
+same laptop, seen from inside the CI job's container.
+
+**Never type `host.docker.internal` into your own browser** - only
+`localhost` (steps 2/3), on any machine, ever. `host.docker.internal`
+only resolves from *inside a Docker container* - typing it into a
+browser fails with "refused to connect," even though ChainLP itself is
+running fine. `host.docker.internal` belongs in exactly one place: the
+CI variable in step 6.
+
 [↑ back to scenario picker](#find-your-scenario)
 
 ### Scenario C: add CI, ChainLP needs a password
