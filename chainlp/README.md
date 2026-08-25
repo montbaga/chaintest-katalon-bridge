@@ -174,6 +174,27 @@ port lives in `chainlp/write-proxy/docker-compose.yml` instead, and the
 property becomes `chaintest.generator.chainlp.host.url=http://localhost:<your new port>/`
 using whichever number you picked there.
 
+**What's `127.0.0.1` doing in that same line, and should you ever touch
+it?**
+
+`127.0.0.1` is the "loopback" address - a special address that always
+means "this exact same computer," and is never reachable from any
+other computer, even one on the same WiFi. It's there on purpose: it's
+what stops a random device on your network from reaching your ChainLP.
+
+Leave it alone unless you're specifically in **Scenario E** and need a
+*different* machine (a teammate's laptop, a separate CI runner) to
+reach this ChainLP. If that's genuinely your situation, change it to
+`0.0.0.0` (all network interfaces) instead:
+```yaml
+ports:
+  - "0.0.0.0:8085:80"
+```
+**Only do this if that server already sits inside a trusted private
+network or VPN.** `0.0.0.0` on a machine reachable from the open
+internet or a public WiFi network re-opens exactly the gap this default
+exists to close.
+
 [↑ back to scenario picker](#find-your-scenario)
 
 ## Before anything else: two addresses, one rule
