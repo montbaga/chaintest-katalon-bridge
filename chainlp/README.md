@@ -100,7 +100,7 @@ nothing in CI settings; someone already did Scenario E for you.
 | # | Where | Who | Do this |
 |---|---|---|---|
 | 1 | **[project]**, `Include/config/chaintest/chaintest.properties` | You | Ask your platform/DevOps team for the real address, then:<br>`chaintest.generator.chainlp.enabled=true`<br>`chaintest.generator.chainlp.host.url=http://chainlp.internal.yourco.com/` |
-| 2 | **[project]**, repo root | You - only if your repo has no pipeline yet | Copy [`gitlab-ci.example.yml`](../gitlab-ci.example.yml) in (**not** the self-hosted variant) as `.gitlab-ci.yml`, fill in your test suite path. That file only produces the static report by default - add these two lines under `run_tests:` yourself, using the same address as step 1:<br>`variables:`<br>`  CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"`<br>`  CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://chainlp.internal.yourco.com/"`<br>`KATALON_API_KEY` is usually already set company-wide - check before adding your own |
+| 2 | **[project]**, repo root | You - only if your repo has no pipeline yet | Copy [`gitlab-ci-chainlp.example.yml`](../gitlab-ci-chainlp.example.yml) in as `.gitlab-ci.yml` - already has the ChainLP variables built in, nothing to add by hand. Fill in your test suite path and the real address from step 1. `KATALON_API_KEY` is usually already set company-wide - check before adding your own |
 | 3 | - | You | `git push`, confirm the build shows up at the address from step 1 |
 
 [↑ back to scenario picker](#find-your-scenario)
@@ -263,14 +263,15 @@ or in a full production deployment alike.
 
 ## Configuration cheat sheet: every scenario, on any CI platform
 
-There are exactly four configurations. Everything else in this document
-is one of these four, explained in more depth.
+There are exactly five configurations. Everything else in this document
+is one of these five, explained in more depth.
 
 | Scenario | `CHAINTEST_GENERATOR_CHAINLP_HOST_URL` | What else needs to exist |
 |---|---|---|
 | Local run, no ChainLP | *(unset - static report only)* | Nothing |
 | Local run, ChainLP with no password | `http://localhost:8085/` | `./up.sh` (or `.\up.ps1`) in this folder |
-| CI, ChainLP with no password | `http://localhost:8085/` (native/shell runner) or `http://host.docker.internal:8085/` (Docker-executor runner) | A self-hosted runner/agent on the same machine as ChainLP (see "ChainLP in CI" below) |
+| CI, ChainLP on the same machine as the runner | `http://localhost:8085/` (native/shell runner) or `http://host.docker.internal:8085/` (Docker-executor runner) | A self-hosted runner/agent on the same machine as ChainLP (see "ChainLP in CI" below) |
+| CI, ChainLP already reachable over the network (a real company address) | `http://chainlp.internal.yourco.com/` - no `host.docker.internal` needed, any runner works | Copy [`gitlab-ci-chainlp.example.yml`](../gitlab-ci-chainlp.example.yml) - already has these variables built in |
 | CI, ChainLP has a password | `http://localhost:8086/` (native/shell runner) or `http://host.docker.internal:8086/` (Docker-executor runner) | Run `write-proxy/setup.sh` (or `.ps1`) once on the runner's machine - the only thing you'll be asked for is the real URL and credential (see "Writing to a ChainLP that's behind a login" below) |
 
 `8085`/`8086` are this bridge's chosen defaults, not reserved or

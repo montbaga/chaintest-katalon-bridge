@@ -305,11 +305,15 @@ of them.
 This repo includes ready-to-copy configs -
 [`azure-pipelines.example.yml`](azure-pipelines.example.yml) and
 [`gitlab-ci.example.yml`](gitlab-ci.example.yml) for the static report
-only, plus [`gitlab-ci-selfhosted-chainlp.example.yml`](gitlab-ci-selfhosted-chainlp.example.yml)
-if you also want CI to push into ChainLP (see "Pushing CI results into
-ChainLP" below) - a GitHub Actions example is planned next. Pick the one
-matching your platform and goal, copy it in under the filename your CI
-expects, and fill in its TODOs (your Test Suite or Test Suite Collection
+only; [`gitlab-ci-chainlp.example.yml`](gitlab-ci-chainlp.example.yml)
+if you also want CI to push into a ChainLP your runner can already
+reach directly (a real company address, no self-hosted-same-machine
+trick needed); or [`gitlab-ci-selfhosted-chainlp.example.yml`](gitlab-ci-selfhosted-chainlp.example.yml)
+if instead your runner and ChainLP need to share one machine (see
+"Pushing CI results into ChainLP" below for which applies to you) - a
+GitHub Actions example is planned next. Pick the one matching your
+platform and goal, copy it in under the filename your CI expects, and
+fill in its TODOs (your Test Suite or Test Suite Collection
 path, and - **important** - the bridge's own repo URL: this bridge isn't
 published to npm yet, so all examples install it by cloning its repo
 directly rather than via `npx`; each file's own comments explain exactly
@@ -383,9 +387,11 @@ self-hosted one) to push into ChainLP, that means hosting ChainLP
 somewhere those runners and your team can reach without a login in front
 of it (a private network/VPN, for example) - a separate, bigger
 infrastructure decision each team makes for itself, distinct from
-anything set up by this bridge. In that case the settings are the same
-two as anywhere else, just pointed at that shared host instead of
-`localhost`:
+anything set up by this bridge. Once that exists, copy
+[`gitlab-ci-chainlp.example.yml`](gitlab-ci-chainlp.example.yml) instead
+- it already has the two settings below built in, just pointed at that
+shared host instead of `localhost`, and needs no self-hosted runner at
+all:
 
 ```
 CHAINTEST_GENERATOR_CHAINLP_ENABLED=true

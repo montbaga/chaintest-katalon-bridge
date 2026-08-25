@@ -1,0 +1,61 @@
+# Example GitLab CI config for a Katalon Studio project using the
+# ChainTest-Katalon Bridge, pushing into a ChainLP that's already
+# reachable over your network - a company's own ChainLP server, a
+# shared team instance, anything with a real address your runner can
+# already reach without a login in between (see chainlp/README.md's
+# "Before anything else: two addresses, one rule" for why no login).
+#
+# Use this file instead of gitlab-ci.example.yml (static report only,
+# no ChainLP) or gitlab-ci-selfhosted-chainlp.example.yml (needs a
+# self-hosted runner on the same machine as ChainLP) when you're in
+# chainlp/README.md's Scenario D: someone else already runs ChainLP,
+# and your runner - shared/cloud or self-hosted, doesn't matter here -
+# can already reach it directly over the network. No host.docker.internal
+# needed: that trick is only for when the runner and ChainLP happen to
+# share one machine, which isn't your situation.
+#
+# Uses Katalon's own official Docker image (katalonstudio/katalon),
+# which ships Chrome and Firefox but not Edge - use -browserType="Chrome"
+# here rather than "Edge Chromium".
+#
+# This bridge isn't published to npm yet, so before_script installs it
+# by cloning its own repo and running install.sh directly - skip this
+# whole before_script if your project already has the bridge's files
+# committed directly (Test Listeners/, Keywords/chaintest/,
+# Include/config/chaintest/) instead. Once npm publishing happens, this
+# collapses to: npx chaintest-katalon-bridge install "$CI_PROJECT_DIR"
+
+image: katalonstudio/katalon:11.4.0
+
+stages:
+  - test
+
+before_script:
+  - which git || (apt-get update && apt-get install -y git)
+  # TODO: replace <YOUR_BRIDGE_REPO_URL> with wherever you're hosting
+  # this bridge's own repo - skip this whole before_script instead if
+  # your project already has the bridge's files committed directly.
+  - git clone --depth 1 <YOUR_BRIDGE_REPO_URL> /tmp/chaintest-bridge
+  - bash /tmp/chaintest-bridge/Linux/install.sh "$CI_PROJECT_DIR"
+
+run_tests:
+  stage: test
+  variables:
+    CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"
+    # TODO: replace with your ChainLP's real, already-reachable address -
+    # ask whoever runs it for you. No host.docker.internal here - that's
+    # only needed when the runner and ChainLP share one machine.
+    CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://chainlp.internal.yourco.com/"
+  artifacts:
+    when: always
+    paths:
+      - Reports/
+      - chaintest-report/
+  script:
+    # TODO: replace <YourSuite> with your actual Test Suite path, or use
+    # -testSuiteCollectionPath instead to run a whole collection.
+    #
+    # Add KATALON_API_KEY under Settings > CI/CD > Variables in your
+    # project (mask it) - often already set company-wide, check before
+    # adding your own.
+    - katalonc.sh -projectPath="$CI_PROJECT_DIR" -testSuitePath="Test Suites/<YourSuite>" -browserType="Chrome" -apiKey="$KATALON_API_KEY" -retry=0 --config -webui.autoUpdateDrivers=true -reportFolder="$CI_PROJECT_DIR/Reports"
