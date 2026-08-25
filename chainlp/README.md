@@ -104,6 +104,78 @@ Everyone in Scenario D depends on you doing this once.
 
 [↑ back to scenario picker](#find-your-scenario)
 
+## Ports 8085 and 8086, plainly
+
+This is the part people trip over most, so here it is on its own,
+answering exactly these questions in order: what `docker-compose.yml` is
+even doing, whether it's something you personally need to touch, which
+port to use, and what to do if one isn't free.
+
+**What is `chainlp/docker-compose.yml` actually doing?**
+It's a small config file - not code, nothing to program - that tells
+Docker "start these programs, and let people reach them at these
+specific ports." You open it at most twice: once to start ChainLP the
+first time, and again only if a port turns out to be taken. It
+configures the separate ChainLP *server* (see the **[bridge repo]**
+note above) - it has nothing to do with your Katalon project's own
+files.
+
+**Is this file "for me"?**
+Only if you're the one running ChainLP yourself - Scenario A, C, or E
+above. If you're joining a team whose ChainLP already exists (Scenario
+D), you never open this file at all - someone else already ran it once
+and just handed you a URL.
+
+**8085 or 8086 - which one do I use?** One question decides it:
+
+> Does the ChainLP you're sending results to have a password/login in
+> front of it that you can't remove?
+
+- **No** → use **8085** - the plain address, no login.
+- **Yes** → use **8086** - the write-proxy's address, a small helper
+  that holds that password for you so your tests never have to.
+
+Nothing else about your setup changes which one you pick.
+
+**What if the port isn't available?**
+You'll know immediately - `docker compose up -d` fails with an error
+that looks exactly like this:
+```
+Error response from daemon: Ports are not available: exposing port TCP 127.0.0.1:8085 -> ...
+Bind for 127.0.0.1:8085 failed: port is already allocated
+```
+That means something else already running on your machine has claimed
+that port for something unrelated to this bridge.
+
+**Exactly what to change, for 8085:**
+
+1. Open `chainlp/docker-compose.yml` in any text editor.
+2. Find this, under `chainlp-proxy:`:
+   ```yaml
+       ports:
+         - "127.0.0.1:8085:80"
+   ```
+3. Change **only the middle number** to something free, e.g. `9000` -
+   leave `127.0.0.1` and the trailing `:80` exactly as they are:
+   ```yaml
+       ports:
+         - "127.0.0.1:9000:80"
+   ```
+4. Save. Then, in your Katalon project's
+   `Include/config/chaintest/chaintest.properties`, change the matching
+   line to the **same** new number:
+   ```properties
+   chaintest.generator.chainlp.host.url=http://localhost:9000/
+   ```
+5. Run `docker compose up -d` again.
+
+**For 8086, it's the same two edits**, just in different files: the
+port lives in `chainlp/write-proxy/docker-compose.yml` instead, and the
+property becomes `chaintest.generator.chainlp.host.url=http://localhost:<your new port>/`
+using whichever number you picked there.
+
+[↑ back to scenario picker](#find-your-scenario)
+
 ## Before anything else: two addresses, one rule
 
 Everything below - the default local setup, the optional tunnel, ChainLP
