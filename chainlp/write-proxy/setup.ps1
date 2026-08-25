@@ -50,20 +50,43 @@ Write-Host "Wrote $envFile"
 
 Write-Host "Starting chainlp-write-proxy..."
 Push-Location $scriptDir
+$chosenPort = $null
 try {
-    docker compose up -d
+    $candidatePorts = @(8086, 8091, 8096, 8101, 8106)
+    foreach ($port in $candidatePorts) {
+        $env:CHAINLP_WRITE_PROXY_PORT = "$port"
+        $output = docker compose up -d 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $chosenPort = $port
+            break
+        }
+        $output | ForEach-Object { Write-Host $_ }
+        $outputText = $output | Out-String
+        if ($outputText -match "port is already allocated" -or $outputText -match "[Pp]orts are not available") {
+            Write-Host "Port $port is already in use on this machine - trying the next one..."
+            continue
+        }
+        throw "docker compose up failed for a reason unrelated to the port - see the error above."
+    }
 } finally {
     Pop-Location
+}
+
+if (-not $chosenPort) {
+    Write-Host "All candidate ports ($($candidatePorts -join ', ')) are already in use."
+    Write-Host "Pick a free one yourself and re-run with:"
+    Write-Host '  $env:CHAINLP_WRITE_PROXY_PORT="<port>"; docker compose up -d'
+    exit 1
 }
 
 Write-Host ""
 Write-Host "Done. In your CI pipeline (any platform - GitLab/GitHub/Azure), set:"
 Write-Host "  CHAINTEST_GENERATOR_CHAINLP_ENABLED=true"
-Write-Host "  CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://localhost:8086/"
+Write-Host "  CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://localhost:$chosenPort/"
 Write-Host ""
 Write-Host "If your CI job runs inside a Docker container (a 'docker' executor/"
 Write-Host "runner), use this instead:"
-Write-Host "  CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://host.docker.internal:8086/"
+Write-Host "  CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://host.docker.internal:$chosenPort/"
 Write-Host ""
 Write-Host "Re-run this script any time to change the URL or credential - it"
 Write-Host "overwrites .env and restarts the container."

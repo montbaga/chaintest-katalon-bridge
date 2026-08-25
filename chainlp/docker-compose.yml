@@ -30,9 +30,13 @@ services:
       # would make this reachable from anyone on the same LAN via this
       # machine's real IP, not just "localhost" - contradicting the
       # "unauthenticated because only this machine can reach it" claim
-      # made throughout this project's docs. Confirmed and fixed after
-      # a direct question about exactly this during development.
-      - "127.0.0.1:8085:80"
+      # made throughout this project's docs.
+      #
+      # The port itself is overridable via CHAINLP_PROXY_PORT so that
+      # up.sh/up.ps1 can retry on a different one automatically if 8085
+      # is already taken - see those scripts rather than editing this
+      # line by hand.
+      - "127.0.0.1:${CHAINLP_PROXY_PORT:-8085}:80"
     volumes:
       - ./proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     # Always on, unauthenticated. This bridge itself pushes results here

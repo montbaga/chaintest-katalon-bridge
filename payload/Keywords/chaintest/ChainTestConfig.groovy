@@ -2,6 +2,10 @@ package chaintest
 
 import com.kms.katalon.core.configuration.RunConfiguration
 
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.URI
+
 /**
  * Reads Include/config/chaintest/chaintest.properties, with every key
  * overridable via a CHAINTEST_<KEY_IN_UPPER_SNAKE_CASE> environment
@@ -149,8 +153,62 @@ class ChainTestConfig {
         return Boolean.parseBoolean(read('chaintest.generator.chainlp.enabled', 'false'))
     }
 
+    private static String resolvedChainLPHostUrl
+
+    /**
+     * Falls back from "localhost"/"127.0.0.1" to "host.docker.internal"
+     * automatically when the configured address is unreachable but that
+     * substitution is - the single most common setup mistake this bridge
+     * has seen: a CI job running Katalon inside a Docker container can't
+     * reach ChainLP via "localhost" (that means the container itself, not
+     * the host machine), but forgetting to configure "host.docker.internal"
+     * explicitly used to just fail silently instead. Resolved once and
+     * cached for the life of this run - the answer can't change mid-run
+     * and repeating the probe per Test Suite would be wasted work in a
+     * Test Suite Collection.
+     */
     static String chainLPHostUrl() {
-        return read('chaintest.generator.chainlp.host.url', 'http://localhost:8085/')
+        if (resolvedChainLPHostUrl == null) {
+            String configured = read('chaintest.generator.chainlp.host.url', 'http://localhost:8085/')
+            resolvedChainLPHostUrl = chainLPEnabled() ? resolveReachableHostUrl(configured) : configured
+        }
+        return resolvedChainLPHostUrl
+    }
+
+    private static String resolveReachableHostUrl(String url) {
+        try {
+            URI uri = new URI(url)
+            String host = uri.getHost()
+            if (host != 'localhost' && host != '127.0.0.1') {
+                return url
+            }
+            int port = uri.getPort() != -1 ? uri.getPort() : ('https' == uri.getScheme() ? 443 : 80)
+            if (isReachable(host, port)) {
+                return url
+            }
+            if (isReachable('host.docker.internal', port)) {
+                println "[ChainTest Bridge] '${host}:${port}' is unreachable for ChainLP, but 'host.docker.internal:${port}' is - using that instead (this looks like Katalon is running inside a Docker container, e.g. a CI job). Set chaintest.generator.chainlp.host.url explicitly to silence this check."
+                return url.replaceFirst(java.util.regex.Pattern.quote(host), 'host.docker.internal')
+            }
+        } catch (Throwable ignored) {
+            // Never let this convenience check affect the real test run -
+            // fall through and use the configured value exactly as given.
+        }
+        return url
+    }
+
+    private static boolean isReachable(String host, int port) {
+        try {
+            Socket socket = new Socket()
+            try {
+                socket.connect(new InetSocketAddress(host, port), 300)
+                return true
+            } finally {
+                socket.close()
+            }
+        } catch (Throwable ignored) {
+            return false
+        }
     }
 
     static boolean chainLPPersistEmbeds() {

@@ -44,7 +44,7 @@ not just your one piece.
 
 | # | Where | Who | Do this |
 |---|---|---|---|
-| 1 | **[bridge repo]**, `chainlp/` folder | You | `cd chainlp`<br>`docker compose up -d` |
+| 1 | **[bridge repo]**, `chainlp/` folder | You | `cd chainlp`<br>`./up.sh` (or `.\up.ps1` on Windows) - retries automatically if `8085` is taken |
 | 2 | **[project]**, `Include/config/chaintest/chaintest.properties` | You | `chaintest.generator.chainlp.enabled=true`<br>`chaintest.generator.chainlp.host.url=http://localhost:8085/` |
 | 3 | - | You | Run your tests, open `http://localhost:8085/` - your build should be there |
 
@@ -94,8 +94,8 @@ Everyone in Scenario D depends on you doing this once.
 
 | # | Where | Who | Do this |
 |---|---|---|---|
-| 1 | **[bridge repo]** | Platform/DevOps team | On a real server, not a laptop:<br>`git clone https://github.com/montbaga/chaintest-katalon-bridge`<br>`cd chaintest-katalon-bridge/chainlp`<br>`docker compose up -d` |
-| 2 | **[bridge repo]**, `chainlp/docker-compose.yml` | Platform/DevOps team | Only if port `8085` conflicts: change `"127.0.0.1:8085:80"` under `chainlp-proxy` |
+| 1 | **[bridge repo]** | Platform/DevOps team | On a real server, not a laptop:<br>`git clone https://github.com/montbaga/chaintest-katalon-bridge`<br>`cd chaintest-katalon-bridge/chainlp`<br>`./up.sh` (or `.\up.ps1`) - retries automatically if `8085` is taken |
+| 2 | **[bridge repo]**, `chainlp/docker-compose.yml` | Platform/DevOps team | Only if **every** candidate port is also taken (rare): set `CHAINLP_PROXY_PORT=<port>` yourself before running `docker compose up -d` |
 | 3 | Outside the bridge - your own DNS/reverse-proxy | Platform/DevOps team | Point `chainlp.internal.yourco.com` at that server (see "Before anything else" below for why) |
 | 4 | **[CI settings]** | Platform/DevOps team | Register your company's CI runner(s) on the *same private network* as that server |
 | 5 | **[CI settings]** | Platform/DevOps team | Add `KATALON_API_KEY` once, at the group/org level, so individual projects never need their own |
@@ -138,41 +138,34 @@ and just handed you a URL.
 Nothing else about your setup changes which one you pick.
 
 **What if the port isn't available?**
-You'll know immediately - `docker compose up -d` fails with an error
-that looks exactly like this:
-```
-Error response from daemon: Ports are not available: exposing port TCP 127.0.0.1:8085 -> ...
-Bind for 127.0.0.1:8085 failed: port is already allocated
-```
-That means something else already running on your machine has claimed
-that port for something unrelated to this bridge.
+This is now handled for you automatically - you don't need to notice or
+do anything. Use `./up.sh`/`.\up.ps1` (for 8085) or
+`write-proxy/setup.sh`/`.ps1` (for 8086) instead of calling
+`docker compose up -d` directly, and if `8085`/`8086` is taken, they
+retry on the next candidate port (`8090`, `8095`, `8100`, `8105` for
+ChainLP; `8091`, `8096`, `8101`, `8106` for the write-proxy)
+automatically, then print the exact `chaintest.properties` line to use
+for whichever port actually worked. Nothing to edit by hand in this
+case.
 
-**Exactly what to change, for 8085:**
+**Only if every candidate port is also taken** (five machines'-worth of
+conflicts - unlikely) do you need to pick one yourself:
 
-1. Open `chainlp/docker-compose.yml` in any text editor.
-2. Find this, under `chainlp-proxy:`:
-   ```yaml
-       ports:
-         - "127.0.0.1:8085:80"
+1. Run with a specific port directly:
+   ```bash
+   CHAINLP_PROXY_PORT=9000 docker compose up -d          # for 8085's stack
+   CHAINLP_WRITE_PROXY_PORT=9001 docker compose up -d    # for 8086's stack, from write-proxy/
    ```
-3. Change **only the middle number** to something free, e.g. `9000` -
-   leave `127.0.0.1` and the trailing `:80` exactly as they are:
-   ```yaml
-       ports:
-         - "127.0.0.1:9000:80"
-   ```
-4. Save. Then, in your Katalon project's
-   `Include/config/chaintest/chaintest.properties`, change the matching
-   line to the **same** new number:
+2. Match that same number in your Katalon project's
+   `Include/config/chaintest/chaintest.properties`:
    ```properties
    chaintest.generator.chainlp.host.url=http://localhost:9000/
    ```
-5. Run `docker compose up -d` again.
 
-**For 8086, it's the same two edits**, just in different files: the
-port lives in `chainlp/write-proxy/docker-compose.yml` instead, and the
-property becomes `chaintest.generator.chainlp.host.url=http://localhost:<your new port>/`
-using whichever number you picked there.
+(The underlying `docker-compose.yml` files still have `8085`/`8086` as
+their plain defaults if you ever call `docker compose up -d` directly
+without one of these scripts - that's what the error message above
+would be reacting to in that case.)
 
 **What's `127.0.0.1` doing in that same line, and should you ever touch
 it?**
@@ -251,14 +244,21 @@ is one of these four, explained in more depth.
 | Scenario | `CHAINTEST_GENERATOR_CHAINLP_HOST_URL` | What else needs to exist |
 |---|---|---|
 | Local run, no ChainLP | *(unset - static report only)* | Nothing |
-| Local run, ChainLP with no password | `http://localhost:8085/` | `docker compose up -d` in this folder |
+| Local run, ChainLP with no password | `http://localhost:8085/` | `./up.sh` (or `.\up.ps1`) in this folder |
 | CI, ChainLP with no password | `http://localhost:8085/` (native/shell runner) or `http://host.docker.internal:8085/` (Docker-executor runner) | A self-hosted runner/agent on the same machine as ChainLP (see "ChainLP in CI" below) |
 | CI, ChainLP has a password | `http://localhost:8086/` (native/shell runner) or `http://host.docker.internal:8086/` (Docker-executor runner) | Run `write-proxy/setup.sh` (or `.ps1`) once on the runner's machine - the only thing you'll be asked for is the real URL and credential (see "Writing to a ChainLP that's behind a login" below) |
 
 `8085`/`8086` are this bridge's chosen defaults, not reserved or
-guaranteed-free ports - if something else on your machine already uses
-one, change it (see "Bring it up" / "Writing to a ChainLP that's behind
-a login" below for exactly where).
+guaranteed-free ports - `up.sh`/`up.ps1` and `write-proxy/setup.sh`/`.ps1`
+now retry on a different port automatically if one's taken (see "Ports
+8085 and 8086, plainly" above), so this rarely needs manual handling
+anymore.
+
+**Left `localhost` on a Docker-executor runner by mistake?** The bridge
+now tries `host.docker.internal` automatically if `localhost` turns out
+to be unreachable, and logs when it does - the explicit value above is
+still the clearer, recommended thing to set, but a forgotten one no
+longer fails silently.
 
 **None of this changes between GitLab CI, GitHub Actions, and Azure
 Pipelines.** The two environment variable names above, the four rows in
@@ -283,10 +283,16 @@ exactly as written.
 ## Bring it up
 
 ```bash
-docker compose up -d
+./up.sh     # macOS/Linux
+.\up.ps1    # Windows
 ```
 
-This starts two containers:
+This starts two containers - and, if port `8085` is already taken on
+your machine, it retries automatically on `8090`, `8095`, `8100`, then
+`8105` before giving up, printing the exact `chaintest.properties` line
+to use once it succeeds. (Plain `docker compose up -d` still works too,
+if you'd rather set `CHAINLP_PROXY_PORT` yourself and skip the
+auto-retry.)
 
 - `chainlp` - the real ChainLP server (pinned to `0.0.9`), with an embedded
   H2 database persisted in a named Docker volume, `chainlp-data`. Not
@@ -300,16 +306,17 @@ proxy, so a `curl`/browser hit immediately after `up -d` should already
 work rather than racing a cold start.
 
 **`8085` is just this bridge's chosen default, not a reserved or
-guaranteed-free port.** If something else on your machine is already
-using it, `docker compose up -d` fails outright with an error like
-`Bind for 127.0.0.1:8085 failed: port is already allocated`. If that
-happens, change it in **two places, kept in sync**:
-1. `docker-compose.yml`, in this same folder - change `"127.0.0.1:8085:80"`
-   under `chainlp-proxy` to whatever port you want instead.
-2. `chaintest.properties` - change `chaintest.generator.chainlp.host.url`
-   to match that same new port.
-
-Then run `docker compose up -d` again.
+guaranteed-free port** - but `up.sh`/`up.ps1` handle a conflict on it
+automatically now, trying `8090`/`8095`/`8100`/`8105` in turn. You only
+need to do anything by hand if **all five** of those are also taken
+(unlikely, but see the "Ports 8085 and 8086, plainly" section above for
+exactly what to edit in that case), or if you specifically want to force
+one particular port yourself:
+```bash
+CHAINLP_PROXY_PORT=9000 docker compose up -d
+```
+and then match that same number in `chaintest.properties`'s
+`chaintest.generator.chainlp.host.url`.
 
 ## Point the bridge at it
 
