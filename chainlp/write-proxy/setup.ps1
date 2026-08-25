@@ -55,7 +55,15 @@ try {
     $candidatePorts = @(8086, 8091, 8096, 8101, 8106)
     foreach ($port in $candidatePorts) {
         $env:CHAINLP_WRITE_PROXY_PORT = "$port"
+        # docker compose writes its normal progress output to stderr, not
+        # an error - but PowerShell 5.1 wraps every stderr line from a
+        # native command as a terminating NativeCommandError under
+        # $ErrorActionPreference = 'Stop' (set above), even on success.
+        # Relax it for just this call and check $LASTEXITCODE instead.
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
         $output = docker compose up -d 2>&1
+        $ErrorActionPreference = $previousErrorActionPreference
         if ($LASTEXITCODE -eq 0) {
             $chosenPort = $port
             break
