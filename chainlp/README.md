@@ -23,8 +23,17 @@ the static report needs none of it.
 Every step below says exactly **where** it happens and **who** normally
 does it, using three labels:
 
-- **[project]** - inside the Katalon project you installed the bridge into
-- **[bridge repo]** - inside `chaintest-katalon-bridge`'s own `chainlp/` folder
+- **[project]** - inside the Katalon project you installed the bridge
+  into (`npx chaintest-katalon-bridge install ...` put these files
+  there for you)
+- **[bridge repo]** - inside a **separate** copy of
+  `chaintest-katalon-bridge`'s own `chainlp/` folder - this is a small
+  standalone Docker server (ChainLP itself), not part of what the
+  installer puts in your project at all. `npx ... install` never
+  downloads this folder; it only exists if someone separately runs
+  `git clone https://github.com/montbaga/chaintest-katalon-bridge` to
+  get it. Most individual developers (Scenario D below) never touch
+  this - only whoever is actually *hosting* ChainLP does.
 - **[CI settings]** - a web UI (GitLab/GitHub/Azure settings), not a file at all
 
 If a scenario has steps you personally won't run (because a teammate
