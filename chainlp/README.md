@@ -48,6 +48,8 @@ not just your one piece.
 | 2 | **[project]**, `Include/config/chaintest/chaintest.properties` | You | Use the exact URL step 1 printed - normally:<br>`chaintest.generator.chainlp.enabled=true`<br>`chaintest.generator.chainlp.host.url=http://localhost:8085/`<br>(if step 1 had to fall back, use that port here instead of `8085`) |
 | 3 | - | You | Run your tests, open the same URL from step 1/2 in a browser - your build should be there |
 
+**Leave `127.0.0.1` in `chainlp/docker-compose.yml` exactly as it is - don't change it.** It's what stops any other device from reaching ChainLP; since only you use it here, there's nothing to gain by changing it and a real risk (ChainLP has no password of its own) if you did.
+
 [↑ back to scenario picker](#find-your-scenario)
 
 ### Scenario B: add CI, no password needed
@@ -74,6 +76,8 @@ browser fails with "refused to connect," even though ChainLP itself is
 running fine. `host.docker.internal` belongs in exactly one place: the
 CI variable in step 6.
 
+**Leave `127.0.0.1` in `chainlp/docker-compose.yml` exactly as it is - don't change it.** The runner (step 4) is on this same machine, so nothing outside this machine ever needs to reach ChainLP directly - `127.0.0.1` already allows that, and changing it would only open ChainLP up to other devices on your network for no benefit.
+
 [↑ back to scenario picker](#find-your-scenario)
 
 ### Scenario C: add CI, ChainLP needs a password
@@ -88,6 +92,8 @@ This one does **not** need your own local ChainLP (Scenario A/B's `up.sh`) at al
 | 4 | **[project]**, `Include/config/chaintest/chaintest.properties` | You | Use the exact URL step 3 printed - normally:<br>`chaintest.generator.chainlp.enabled=true`<br>`chaintest.generator.chainlp.host.url=http://localhost:8086/`<br>(if step 3 had to fall back, use that port here instead of `8086`) |
 | 5 | **[project]**, repo root | You | Copy [`gitlab-ci-selfhosted-chainlp.example.yml`](../gitlab-ci-selfhosted-chainlp.example.yml) in as `.gitlab-ci.yml`, fill in its `<ANGLE_BRACKET>` placeholders, and set (same port as step 3/4, normally `8086`):<br>`CHAINTEST_GENERATOR_CHAINLP_ENABLED: "true"`<br>`CHAINTEST_GENERATOR_CHAINLP_HOST_URL: "http://host.docker.internal:8086/"` |
 | 6 | - | You | `git push` - the pipeline runs, results appear in ChainLP through the write-proxy |
+
+**Leave `127.0.0.1` in `chainlp/write-proxy/docker-compose.yml` exactly as it is - don't change it.** Same reason as Scenario B: the runner (step 1) is on this same machine, so nothing outside this machine needs to reach the write-proxy directly - and this port is even more sensitive than a plain ChainLP's, since reaching it is equivalent to having the real remote password (see "Where this needs to run" further below).
 
 [↑ back to scenario picker](#find-your-scenario)
 
@@ -106,6 +112,8 @@ nothing in CI settings; someone already did Scenario E for you.
 | 4 | **[CI settings]** | You | Check **Settings → CI/CD → Variables** first - `KATALON_API_KEY` is usually already set company-wide by whoever did Scenario E. Only add your own if it's genuinely missing |
 | 5 | - | You | `git push`, then refresh the URL from step 1 - a new build should appear, pushed by CI using the exact same address you already confirmed working locally |
 
+**You never touch `127.0.0.1`/`docker-compose.yml` in this scenario at all** - that file only exists in the **[bridge repo]**, which you don't have a copy of here. Whether it's `127.0.0.1` or `0.0.0.0` was already decided by your Platform/DevOps team when they did Scenario E.
+
 [↑ back to scenario picker](#find-your-scenario)
 
 ### Scenario E: setting up ChainLP for your team
@@ -115,6 +123,7 @@ Everyone in Scenario D depends on you doing this once.
 | # | Where | Who | Do this |
 |---|---|---|---|
 | 1 | **[bridge repo]** | Platform/DevOps team | On a real server, not a laptop:<br>`git clone https://github.com/montbaga/chaintest-katalon-bridge`<br>`cd chaintest-katalon-bridge/chainlp`<br>`./up.sh` (or `.\up.ps1`) - retries automatically if `8085` is taken |
+| 1b | **[bridge repo]**, `chainlp/docker-compose.yml` | Platform/DevOps team | **Required, not optional, or step 3 below won't work at all:** open this file, find `chainlp-proxy`'s `ports:` line, and change `127.0.0.1:8085:80` to `0.0.0.0:8085:80`. `127.0.0.1` only accepts connections from this exact machine - even the correct address from step 3 would still fail to connect without this change. **Only do this if this server already sits inside a trusted private network/VPN** - anyone who can reach this port can view *and delete* everything, since ChainLP has no login of its own. Same idea applies to `chainlp/write-proxy/docker-compose.yml` if step 6 below applies to you too |
 | 2 | **[bridge repo]**, `chainlp/` folder | Platform/DevOps team | Only if `up.sh`/`up.ps1` says every candidate port is taken (rare) - follow **"If every port is taken"** right after this table, then come back here |
 | 3 | Outside the bridge - your own DNS, or the server itself | Platform/DevOps team | Turn the address from step 1/2 (only usable on this one server) into an address the rest of your team can actually reach - see **"How to point the address at your server"** right after this table for the exact steps |
 | 4 | **[CI settings]** | Platform/DevOps team | Register your company's CI runner(s) on the *same private network* as that server |
