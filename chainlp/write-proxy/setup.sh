@@ -61,11 +61,37 @@ for PORT in "${CANDIDATE_PORTS[@]}"; do
   OUTPUT=$(docker compose up -d 2>&1)
   STATUS=$?
   set -e
+
   if [ $STATUS -eq 0 ]; then
-    CHOSEN_PORT="$PORT"
-    break
+    # docker compose up -d returning success does NOT guarantee the
+    # container stays up - it can report success and then crash moments
+    # later. A single fixed-delay check isn't reliable either: confirmed
+    # directly against chainlp-proxy that a container can still show
+    # State.Running=true 2 seconds in, then die 3 seconds after that.
+    # Poll for several seconds instead of trusting one snapshot.
+    RUNNING=false
+    for _ in 1 2 3 4 5; do
+      sleep 1
+      set +e
+      CHECK_NOW=$(docker inspect -f '{{.State.Running}}' chaintest-katalon-chainlp-write-proxy 2>/dev/null)
+      set -e
+      if [ "$CHECK_NOW" != "true" ]; then
+        RUNNING=false
+        break
+      fi
+      RUNNING=true
+    done
+    if [ "$RUNNING" = "true" ]; then
+      CHOSEN_PORT="$PORT"
+      break
+    fi
+    echo "docker compose up -d reported success, but chainlp-write-proxy isn't actually running - its own logs:"
+    docker logs chaintest-katalon-chainlp-write-proxy 2>&1 | tail -15
+    OUTPUT=$(docker logs chaintest-katalon-chainlp-write-proxy 2>&1)
+  else
+    echo "$OUTPUT"
   fi
-  echo "$OUTPUT"
+
   if echo "$OUTPUT" | grep -qi "port is already allocated\|ports are not available"; then
     echo "Port $PORT is already in use on this machine - trying the next one..."
     continue
@@ -81,10 +107,19 @@ if [ -z "$CHOSEN_PORT" ]; then
   exit 1
 fi
 
+# Report whatever this actually got published on, not an assumed
+# "localhost" - only wrong if ports: was hand-edited to bind a different
+# host; "0.0.0.0" isn't itself a URL you can browse to, so that case
+# still falls back to localhost.
+BOUND_HOST=$(docker port chaintest-katalon-chainlp-write-proxy 80/tcp 2>/dev/null | head -1 | cut -d: -f1)
+if [ -z "$BOUND_HOST" ] || [ "$BOUND_HOST" = "0.0.0.0" ] || [ "$BOUND_HOST" = "127.0.0.1" ]; then
+  BOUND_HOST="localhost"
+fi
+
 echo ""
 echo "Done. In your CI pipeline (any platform - GitLab/GitHub/Azure), set:"
 echo "  CHAINTEST_GENERATOR_CHAINLP_ENABLED=true"
-echo "  CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://localhost:$CHOSEN_PORT/"
+echo "  CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://$BOUND_HOST:$CHOSEN_PORT/"
 echo ""
 echo "If your CI job runs inside a Docker container (a 'docker' executor/"
 echo "runner), use this instead:"

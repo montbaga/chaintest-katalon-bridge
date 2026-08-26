@@ -61,22 +61,55 @@ try {
     $candidatePorts = @(8086, 8091, 8096, 8101, 8106)
     foreach ($port in $candidatePorts) {
         $env:CHAINLP_WRITE_PROXY_PORT = "$port"
-        # docker compose writes its normal progress output to stderr, not
-        # an error - but PowerShell 5.1 wraps every stderr line from a
-        # native command as a terminating NativeCommandError under
-        # $ErrorActionPreference = 'Stop' (set above), even on success.
-        # Relax it for just this call and check $LASTEXITCODE instead.
-        $previousErrorActionPreference = $ErrorActionPreference
-        $ErrorActionPreference = 'Continue'
-        $output = docker compose up -d 2>&1
-        $ErrorActionPreference = $previousErrorActionPreference
-        if ($LASTEXITCODE -eq 0) {
-            $chosenPort = $port
-            break
+        # Redirect stderr to a real file rather than 2>&1 - PowerShell 5.1
+        # wraps a native command's stderr lines as ErrorRecord objects
+        # when merged via 2>&1, which can silently fail to text-match as
+        # plain strings further down (confirmed directly against up.ps1:
+        # a clear "port is already allocated" message failed the -match
+        # check under 2>&1). Note: PowerShell still prints native stderr
+        # to the console as a red "NativeCommandError"-looking line
+        # regardless of this redirect target - cosmetic only, confirmed
+        # directly. Setting $ErrorActionPreference to anything quieter
+        # than 'Continue' here was tried and rejected: it discards the
+        # content before the redirect ever sees it, breaking the
+        # port-conflict detection below entirely rather than just hiding
+        # the noise.
+        $errFile = [System.IO.Path]::GetTempFileName()
+        $stdout = docker compose up -d 2>$errFile
+        $status = $LASTEXITCODE
+        $stderrText = Get-Content -Raw -Path $errFile -ErrorAction SilentlyContinue
+        Remove-Item -Path $errFile -ErrorAction SilentlyContinue
+
+        if ($status -eq 0) {
+            # docker compose up -d returning success does NOT guarantee
+            # the container stays up - it can report success and then
+            # crash moments later. A single fixed-delay check isn't
+            # reliable either: confirmed directly against chainlp-proxy
+            # that a container can still show State.Running=true 2
+            # seconds in, then die 3 seconds after that. Poll for several
+            # seconds instead of trusting one snapshot.
+            $running = $false
+            for ($i = 0; $i -lt 5; $i++) {
+                Start-Sleep -Seconds 1
+                $checkNow = docker inspect -f '{{.State.Running}}' chaintest-katalon-chainlp-write-proxy 2>$null
+                if ($checkNow -ne 'true') {
+                    $running = $false
+                    break
+                }
+                $running = $true
+            }
+            if ($running) {
+                $chosenPort = $port
+                break
+            }
+            Write-Host "docker compose up -d reported success, but chainlp-write-proxy isn't actually running - its own logs:"
+            docker logs chaintest-katalon-chainlp-write-proxy 2>&1 | Select-Object -Last 15 | ForEach-Object { Write-Host $_ }
+            $stderrText = docker logs chaintest-katalon-chainlp-write-proxy 2>&1 | Out-String
+        } else {
+            $stdout | ForEach-Object { Write-Host $_ }
         }
-        $output | ForEach-Object { Write-Host $_ }
-        $outputText = $output | Out-String
-        if ($outputText -match "port is already allocated" -or $outputText -match "[Pp]orts are not available") {
+
+        if ($stderrText -match "port is already allocated" -or $stderrText -match "[Pp]orts are not available") {
             Write-Host "Port $port is already in use on this machine - trying the next one..."
             continue
         }
@@ -93,10 +126,19 @@ if (-not $chosenPort) {
     exit 1
 }
 
+# Report whatever this actually got published on, not an assumed
+# "localhost" - only wrong if ports: was hand-edited to bind a different
+# host; "0.0.0.0" isn't itself a URL you can browse to, so that case
+# still falls back to localhost.
+$boundHost = (docker port chaintest-katalon-chainlp-write-proxy 80/tcp 2>$null | Select-Object -First 1) -replace ':\d+$', ''
+if ([string]::IsNullOrWhiteSpace($boundHost) -or $boundHost -eq '0.0.0.0' -or $boundHost -eq '127.0.0.1') {
+    $boundHost = 'localhost'
+}
+
 Write-Host ""
 Write-Host "Done. In your CI pipeline (any platform - GitLab/GitHub/Azure), set:"
 Write-Host "  CHAINTEST_GENERATOR_CHAINLP_ENABLED=true"
-Write-Host "  CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://localhost:$chosenPort/"
+Write-Host "  CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://${boundHost}:$chosenPort/"
 Write-Host ""
 Write-Host "If your CI job runs inside a Docker container (a 'docker' executor/"
 Write-Host "runner), use this instead:"
