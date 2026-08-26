@@ -116,7 +116,7 @@ Everyone in Scenario D depends on you doing this once.
 |---|---|---|---|
 | 1 | **[bridge repo]** | Platform/DevOps team | On a real server, not a laptop:<br>`git clone https://github.com/montbaga/chaintest-katalon-bridge`<br>`cd chaintest-katalon-bridge/chainlp`<br>`./up.sh` (or `.\up.ps1`) - retries automatically if `8085` is taken |
 | 2 | **[bridge repo]**, `chainlp/` folder | Platform/DevOps team | Only if `up.sh`/`up.ps1` says every candidate port is taken (rare) - follow **"If every port is taken"** right after this table, then come back here |
-| 3 | Outside the bridge - your own DNS/reverse-proxy | Platform/DevOps team | Point `chainlp.internal.yourco.com` at that server (see "Before anything else" below for why) |
+| 3 | Outside the bridge - your own DNS, or the server itself | Platform/DevOps team | Turn the address from step 1/2 (only usable on this one server) into an address the rest of your team can actually reach - see **"How to point the address at your server"** right after this table for the exact steps |
 | 4 | **[CI settings]** | Platform/DevOps team | Register your company's CI runner(s) on the *same private network* as that server |
 | 5 | **[CI settings]** | Platform/DevOps team | Add `KATALON_API_KEY` once, at the group/org level, so individual projects never need their own |
 | 6 | See "Remote access" or "Writing to a ChainLP that's behind a login" below | Platform/DevOps team | Only if you want a login for viewers, or you're relaying a different, already-existing ChainLP |
@@ -194,6 +194,58 @@ curl http://chainlp.internal.yourco.com:9000/
 
 A real page coming back means it's ready - now go back to step 3 in the
 table above and continue from there.
+
+#### How to point the address at your server
+
+**Why this step exists at all:** `up.sh`/`up.ps1` (step 1) prints an
+address like `http://localhost:8085/`. `localhost` is a special word that
+always means "whichever computer you're sitting at right now" - it does
+**not** mean "the server." If a teammate typed that same address into
+their own laptop, it would try to reach ChainLP on *their own laptop* and
+fail. This step replaces `localhost` with something that means "the
+server," from anywhere on your company's network.
+
+Pick whichever of these three matches what your company already has -
+simplest first. Do only **one** of them.
+
+**Option 1 - Just use the server's IP address (no setup, works today)**
+
+| | |
+|---|---|
+| Where | On the server itself |
+| Run | Windows: `ipconfig` (read the "IPv4 Address" line)<br>Mac/Linux: `ifconfig` or `ip addr` (read the "inet" line) |
+| Then | Everywhere this document says `chainlp.internal.yourco.com`, use that IP instead - e.g. `http://10.20.30.40:8085/`. That's the address for step 7, and what every teammate types into their own `chaintest.properties` in Scenario D |
+| Downside | If this server's IP ever changes, everyone needs to be told the new one by hand |
+
+**Option 2 - A friendly name, no real DNS server (fine for a handful of people)**
+
+| | |
+|---|---|
+| Where | On **every** machine that needs to reach ChainLP by name - your own machine, each teammate's laptop, and the CI runner's machine |
+| File to edit | Windows: `C:\Windows\System32\drivers\etc\hosts`<br>Mac/Linux: `/etc/hosts` (needs `sudo`/admin to save) |
+| Add this one line | `10.20.30.40  chainlp.internal.yourco.com` (use this server's real IP from Option 1 above) |
+| Downside | Has to be repeated by hand on every machine - fine for a small team, painful past a handful of people |
+
+**Option 3 - A real internal DNS record (the proper way, for a real company)**
+
+This is normally your IT/Network team's job, not a file in this repo -
+ask them to add it, or do it yourself if that's you:
+
+- **Windows Server/Active Directory DNS:** DNS Manager → your internal
+  zone (e.g. `yourco.com`) → right-click → *New Host (A record)* → Name:
+  `chainlp.internal` → IP: this server's real IP from Option 1.
+- **A cloud DNS zone** (AWS Route 53, Azure DNS, Google Cloud DNS): open
+  that zone in its console → *Add record* → Type `A` → Name
+  `chainlp.internal` → Value: this server's real IP from Option 1.
+
+Once added, `chainlp.internal.yourco.com` works from any machine on your
+company's network automatically - unlike Option 2, nothing needs editing
+on each individual laptop.
+
+**Whichever option you pick**, the resulting address (e.g.
+`http://chainlp.internal.yourco.com:8085/` or `http://10.20.30.40:8085/`)
+is the one value to use everywhere else in this scenario - step 7 below,
+and what every teammate puts in Scenario D step 1.
 
 [↑ back to scenario picker](#find-your-scenario)
 
