@@ -115,16 +115,85 @@ Everyone in Scenario D depends on you doing this once.
 | # | Where | Who | Do this |
 |---|---|---|---|
 | 1 | **[bridge repo]** | Platform/DevOps team | On a real server, not a laptop:<br>`git clone https://github.com/montbaga/chaintest-katalon-bridge`<br>`cd chaintest-katalon-bridge/chainlp`<br>`./up.sh` (or `.\up.ps1`) - retries automatically if `8085` is taken |
-| 2a | This same server | Platform/DevOps team | **Only if `up.sh`/`up.ps1` says every candidate port (`8085`/`8090`/`8095`/`8100`/`8105`) is taken** (rare) - confirm each one is genuinely occupied rather than guessing, then pick any port confirmed free:<br>Linux/macOS: `ss -tlnp \| grep :8085` (repeat with each candidate port)<br>Windows: `Get-NetTCPConnection -LocalPort 8085 -ErrorAction SilentlyContinue` (repeat with each candidate port) |
-| 2b | **[bridge repo]**, `chainlp/` folder | Platform/DevOps team | Start ChainLP on the free port you found, explicitly:<br>bash: `CHAINLP_PROXY_PORT=9000 docker compose up -d`<br>PowerShell: `$env:CHAINLP_PROXY_PORT="9000"; docker compose up -d`<br>(`9000` is only an example - use the port you confirmed free in 2a. See "Ports 8085 and 8086, plainly" below for the general mechanics of this) |
-| 2c | Outside the bridge - your own DNS/reverse-proxy | Platform/DevOps team | Depends on what step 3 below actually is for you:<br>• **Plain DNS only, no reverse proxy** - the port has to be part of the address itself: `http://chainlp.internal.yourco.com:9000/`, not the portless form shown in step 3<br>• **A real reverse proxy/load balancer in front** - leave the public address alone; instead update *its* backend/upstream target to the new port (e.g. nginx: `proxy_pass http://127.0.0.1:9000;`) |
-| 2d | This server's firewall - only if one restricts inbound ports | Platform/DevOps team | Open the custom port the same way you'd have opened the default one, e.g. Linux: `ufw allow 9000/tcp`; Windows: `New-NetFirewallRule -DisplayName "ChainLP" -Direction Inbound -LocalPort 9000 -Protocol TCP -Action Allow`. Only needed if something other than this exact machine - a reverse proxy on a different box, or teammates directly - has to reach it over the network |
-| 2e | - | Platform/DevOps team | Confirm it actually works **from a second machine**, not just this server - e.g. `curl http://<address-from-2c>/` run from a teammate's laptop or the reverse proxy's own box - before telling anyone the address in step 7. Same idea as Scenario D's step 2 "does this work at all," just checked from the hosting side first |
-| 3 | Outside the bridge - your own DNS/reverse-proxy | Platform/DevOps team | If you didn't need 2a-2e: point `chainlp.internal.yourco.com` at that server on the default port (see "Before anything else" below for why) |
+| 2 | **[bridge repo]**, `chainlp/` folder | Platform/DevOps team | Only if `up.sh`/`up.ps1` says every candidate port is taken (rare) - follow **"If every port is taken"** right after this table, then come back here |
+| 3 | Outside the bridge - your own DNS/reverse-proxy | Platform/DevOps team | Point `chainlp.internal.yourco.com` at that server (see "Before anything else" below for why) |
 | 4 | **[CI settings]** | Platform/DevOps team | Register your company's CI runner(s) on the *same private network* as that server |
 | 5 | **[CI settings]** | Platform/DevOps team | Add `KATALON_API_KEY` once, at the group/org level, so individual projects never need their own |
 | 6 | See "Remote access" or "Writing to a ChainLP that's behind a login" below | Platform/DevOps team | Only if you want a login for viewers, or you're relaying a different, already-existing ChainLP |
 | 7 | - | Platform/DevOps team | Tell your team the address from step 3 - that's all Scenario D needs from you |
+
+[↑ back to scenario picker](#find-your-scenario)
+
+#### If every port is taken
+
+Skip this whole section unless `up.sh`/`up.ps1` from step 1 actually told you
+every port it tried is in use - for almost everyone, that never happens.
+If it did, do these five things in order, on that same server:
+
+**1. Find a port that's actually free.**
+Try a number like `9000` - if nothing prints, it's free; if something
+prints, try `9001`, `9002`, and so on until one comes back empty.
+
+```bash
+# Mac/Linux - run this
+ss -tlnp | grep :9000
+```
+```powershell
+# Windows - run this
+Get-NetTCPConnection -LocalPort 9000 -ErrorAction SilentlyContinue
+```
+
+**2. Start ChainLP on that free port.**
+From the `chainlp/` folder, run:
+
+```bash
+# Mac/Linux
+CHAINLP_PROXY_PORT=9000 docker compose up -d
+```
+```powershell
+# Windows
+$env:CHAINLP_PROXY_PORT="9000"; docker compose up -d
+```
+
+(Replace `9000` with whatever free port you actually found in step 1.)
+
+**3. Add that port number to the address you'll give your team.**
+Back in step 3 of the table above, instead of
+`http://chainlp.internal.yourco.com/`, the address becomes
+`http://chainlp.internal.yourco.com:9000/` - just `:9000` (your real port
+number) added right after the hostname. This is the exact address to use
+everywhere else in this scenario, including step 7.
+
+If your company already puts a reverse proxy in front of ChainLP (one
+address like `chainlp.internal.yourco.com` that quietly forwards to a
+different port behind the scenes), skip changing the address at all -
+instead, open that reverse proxy's own config and point it at `9000`.
+That config lives wherever your reverse proxy is set up - not in this
+repo - so ask whoever manages it if that's not you.
+
+**4. Only if this server has a firewall: open that port.**
+If nothing outside this exact machine needs to reach ChainLP (e.g. a
+reverse proxy on the very same server), skip this step entirely.
+
+```bash
+# Mac/Linux
+sudo ufw allow 9000/tcp
+```
+```powershell
+# Windows
+New-NetFirewallRule -DisplayName "ChainLP" -Direction Inbound -LocalPort 9000 -Protocol TCP -Action Allow
+```
+
+**5. Test it from a different computer before telling anyone.**
+Not this server - a teammate's laptop, or wherever your CI runner sits.
+Run (using your real address from step 3):
+
+```bash
+curl http://chainlp.internal.yourco.com:9000/
+```
+
+A real page coming back means it's ready - now go back to step 3 in the
+table above and continue from there.
 
 [↑ back to scenario picker](#find-your-scenario)
 
