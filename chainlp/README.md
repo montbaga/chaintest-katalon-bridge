@@ -179,11 +179,27 @@ case.
 **Only if every candidate port is also taken** (five machines'-worth of
 conflicts - unlikely) do you need to pick one yourself:
 
-1. Run with a specific port directly:
+1. For **8085's stack** (the plain ChainLP), from the `chainlp/` folder:
    ```bash
-   CHAINLP_PROXY_PORT=9000 docker compose up -d          # for 8085's stack
-   CHAINLP_WRITE_PROXY_PORT=9001 docker compose up -d    # for 8086's stack, from write-proxy/
+   # macOS/Linux
+   CHAINLP_PROXY_PORT=9000 docker compose up -d
    ```
+   ```powershell
+   # Windows
+   $env:CHAINLP_PROXY_PORT="9000"; docker compose up -d
+   ```
+   For **8086's stack** (the write-proxy), same idea, from the
+   `chainlp/write-proxy/` folder instead:
+   ```bash
+   # macOS/Linux
+   CHAINLP_WRITE_PROXY_PORT=9001 docker compose up -d
+   ```
+   ```powershell
+   # Windows
+   $env:CHAINLP_WRITE_PROXY_PORT="9001"; docker compose up -d
+   ```
+   (`9000`/`9001` above are just examples - use any free port you've
+   confirmed nothing else is using.)
 2. Match that same number in your Katalon project's
    `Include/config/chaintest/chaintest.properties`:
    ```properties
@@ -344,9 +360,14 @@ automatically now, trying `8090`/`8095`/`8100`/`8105` in turn. You only
 need to do anything by hand if **all five** of those are also taken
 (unlikely, but see the "Ports 8085 and 8086, plainly" section above for
 exactly what to edit in that case), or if you specifically want to force
-one particular port yourself:
+one particular port yourself, from this `chainlp/` folder:
 ```bash
+# macOS/Linux
 CHAINLP_PROXY_PORT=9000 docker compose up -d
+```
+```powershell
+# Windows
+$env:CHAINLP_PROXY_PORT="9000"; docker compose up -d
 ```
 and then match that same number in `chaintest.properties`'s
 `chaintest.generator.chainlp.host.url`.
