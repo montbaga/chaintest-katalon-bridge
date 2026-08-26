@@ -40,6 +40,17 @@ pre-wired instead.
 <details>
 <summary><b>📦 npm (any OS)</b></summary>
 
+**Not published to the npm registry yet** - the command below will 404
+until it is. Use this instead in the meantime, no registry needed:
+
+```
+npx github:montbaga/chaintest-katalon-bridge install "/path/to/your/katalon/project"
+npx github:montbaga/chaintest-katalon-bridge uninstall "/path/to/your/katalon/project"
+```
+
+Once published, it becomes the shorter, registry-based form below - the
+rest of this section documents that future state:
+
 Needs Node.js. Works identically on Windows, macOS, and Linux.
 
 ```

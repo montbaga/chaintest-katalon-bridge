@@ -195,26 +195,30 @@ their plain defaults if you ever call `docker compose up -d` directly
 without one of these scripts - that's what the error message above
 would be reacting to in that case.)
 
-**What's `127.0.0.1` doing in that same line, and should you ever touch
-it?**
+**What's `127.0.0.1` doing in that same line?**
+It's the "loopback" address - a special address that always means "this
+exact same computer," and is never reachable from any other computer,
+even one on the same WiFi. It's there on purpose: it's what stops a
+random device on your network from reaching your ChainLP.
 
-`127.0.0.1` is the "loopback" address - a special address that always
-means "this exact same computer," and is never reachable from any
-other computer, even one on the same WiFi. It's there on purpose: it's
-what stops a random device on your network from reaching your ChainLP.
+**Change it, or leave it?** One question decides it:
 
-Leave it alone unless you're specifically in **Scenario E** and need a
-*different* machine (a teammate's laptop, a separate CI runner) to
-reach this ChainLP. If that's genuinely your situation, change it to
-`0.0.0.0` (all network interfaces) instead:
-```yaml
-ports:
-  - "0.0.0.0:8085:80"
-```
-**Only do this if that server already sits inside a trusted private
-network or VPN.** `0.0.0.0` on a machine reachable from the open
-internet or a public WiFi network re-opens exactly the gap this default
-exists to close.
+> Does anything other than this exact machine need to reach ChainLP
+> directly - a teammate's laptop, a separate CI runner, anyone at all?
+
+- **No** → **leave it exactly as `127.0.0.1`.** This is the safe
+  default for Scenario A/B/C, unconditionally - nothing to do here.
+- **Yes** (this is **Scenario E only**) → change it to `0.0.0.0` (all
+  network interfaces):
+  ```yaml
+  ports:
+    - "0.0.0.0:8085:80"
+  ```
+  **Only if that machine already sits inside a trusted private network
+  or VPN.** Doing this on a machine reachable from the open internet or
+  a public WiFi network undoes the exact protection `127.0.0.1`
+  provides - anyone who can reach that address can view *and delete*
+  every project/build/test, since ChainLP has no login of its own.
 
 [↑ back to scenario picker](#find-your-scenario)
 
@@ -290,7 +294,7 @@ still the clearer, recommended thing to set, but a forgotten one no
 longer fails silently.
 
 **None of this changes between GitLab CI, GitHub Actions, and Azure
-Pipelines.** The two environment variable names above, the four rows in
+Pipelines.** The two environment variable names above, the five rows in
 this table, and the write-proxy itself are identical on every platform -
 there is nothing GitLab-specific about any of it, even though GitLab CI
 happens to be the one with a fully worked example elsewhere in this repo
@@ -585,10 +589,9 @@ CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://localhost:8086/
 ```
 
 **Same caveat as `chainlp-proxy`'s `8085`: `8086` is just a default, not
-guaranteed free.** If something else is already using it, change
-`"127.0.0.1:8086:80"` in `write-proxy/docker-compose.yml` to a different
-port, update the URL above to match, and restart with
-`docker compose up -d` (from inside `write-proxy/`).
+guaranteed free** - but `setup.sh`/`.ps1` already retry automatically on
+`8091`/`8096`/`8101`/`8106` if it's taken (see "Ports 8085 and 8086,
+plainly" above), so this is rarely something you need to touch by hand.
 
 ### Where this needs to run
 
@@ -649,7 +652,7 @@ same idea, for GitHub Actions or Azure Pipelines instead.
 ### The shape of it, on any platform
 
 1. Pick the machine: it needs Docker, and this bridge's `chainlp/` stack
-   running (`docker compose up -d`). This can be (and usually is) your
+   running (`./up.sh` or `.\up.ps1`). This can be (and usually is) your
    own laptop or workstation - nothing here requires a dedicated server,
    and there's no separate Katalon Studio install to set up on it: the
    pipeline itself runs Katalon inside Katalon's own official
@@ -768,7 +771,7 @@ different machine each value points at:
 
 | Piece | On one machine (this guide) | At company scale | Why it changes |
 |---|---|---|---|
-| Run ChainLP | `cd chainlp && docker compose up -d` on your own laptop | Identical command, run once on a dedicated always-on server instead of a laptop | A laptop gets turned off; a team dashboard needs to be there any time anyone checks it |
+| Run ChainLP | `cd chainlp && ./up.sh` (or `.\up.ps1`) on your own laptop | Identical command, run once on a dedicated always-on server instead of a laptop | A laptop gets turned off; a team dashboard needs to be there any time anyone checks it |
 | ChainLP's address | `http://localhost:8085/` | A real internal address, e.g. `http://chainlp.internal.yourcompany.com/`, reachable over your company's VPN/private network | `localhost` only ever means "this one machine" - meaningless to a second person or a second server |
 | Register the CI runner | Self-hosted runner registered on that same laptop (Docker executor) | Self-hosted runner(s) on your company's own CI infrastructure, inside the same private network as ChainLP - not any one person's laptop | The rule is "no login, but only trusted machines may write" - the trust boundary just gets bigger, from "this laptop" to "our private network" |
 | Point CI at ChainLP | `CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://host.docker.internal:8085/` | `CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://chainlp.internal.yourcompany.com/` | `host.docker.internal` only means anything when ChainLP happens to sit on the exact same physical machine as the runner's container - a separate real server needs its own real address instead |
