@@ -10,25 +10,26 @@ foreach ($Port in $CandidatePorts) {
     Write-Host "Trying ChainLP on port $Port..."
     $env:CHAINLP_PROXY_PORT = "$Port"
 
-    # Redirect stderr to a real file rather than 2>&1 - PowerShell 5.1
-    # wraps a native command's stderr lines as ErrorRecord objects when
-    # merged via 2>&1, which can silently fail to text-match as plain
-    # strings further down (confirmed directly: a clear "port is already
-    # allocated" message failed the -match check below under 2>&1). A
-    # file redirect captures the raw, unmangled text instead.
-    # Note: PowerShell 5.1 prints native stderr to the console as a
-    # red "NativeCommandError"-looking line regardless of this redirect
-    # target - cosmetic only, confirmed directly. Setting
-    # $ErrorActionPreference to anything quieter than 'Continue' here
-    # was tried and rejected: it discards the content before the
-    # redirect ever sees it, breaking the port-conflict detection below
-    # entirely rather than just hiding the noise.
-    $errFile = [System.IO.Path]::GetTempFileName()
-    $stdout = docker compose up -d 2>$errFile
+    # Shell out through cmd.exe for plain, predictable file redirection,
+    # rather than letting PowerShell itself capture this native command's
+    # streams. PowerShell 5.1's own handling of a native command's stderr
+    # (via 2>&1 or 2>$file alike) was tried multiple ways and confirmed
+    # unreliable every time - sometimes wrapping lines as ErrorRecord
+    # objects that fail to text-match as plain strings further down,
+    # sometimes leaking formatted "NativeCommandError" noise to the
+    # console regardless of redirect target, sometimes dropping content
+    # if $ErrorActionPreference is anything quieter than 'Continue'. A
+    # cmd.exe /c wrapper does the redirection itself at the OS level,
+    # with none of that.
+    $stdoutFile = [System.IO.Path]::GetTempFileName()
+    $stderrFile = [System.IO.Path]::GetTempFileName()
+    cmd /c "docker compose up -d > `"$stdoutFile`" 2> `"$stderrFile`""
     $Status = $LASTEXITCODE
-    $stderrText = Get-Content -Raw -Path $errFile -ErrorAction SilentlyContinue
-    Remove-Item -Path $errFile -ErrorAction SilentlyContinue
+    $stdout = Get-Content -Path $stdoutFile -ErrorAction SilentlyContinue
+    $stderrText = Get-Content -Raw -Path $stderrFile -ErrorAction SilentlyContinue
+    Remove-Item -Path $stdoutFile, $stderrFile -ErrorAction SilentlyContinue
     $stdout | ForEach-Object { Write-Host $_ }
+    if ($stderrText) { Write-Host $stderrText }
 
     if ($Status -eq 0) {
         # docker compose up -d returning success does NOT guarantee the

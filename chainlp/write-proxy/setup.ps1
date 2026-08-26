@@ -61,24 +61,26 @@ try {
     $candidatePorts = @(8086, 8091, 8096, 8101, 8106)
     foreach ($port in $candidatePorts) {
         $env:CHAINLP_WRITE_PROXY_PORT = "$port"
-        # Redirect stderr to a real file rather than 2>&1 - PowerShell 5.1
-        # wraps a native command's stderr lines as ErrorRecord objects
-        # when merged via 2>&1, which can silently fail to text-match as
-        # plain strings further down (confirmed directly against up.ps1:
-        # a clear "port is already allocated" message failed the -match
-        # check under 2>&1). Note: PowerShell still prints native stderr
-        # to the console as a red "NativeCommandError"-looking line
-        # regardless of this redirect target - cosmetic only, confirmed
-        # directly. Setting $ErrorActionPreference to anything quieter
-        # than 'Continue' here was tried and rejected: it discards the
-        # content before the redirect ever sees it, breaking the
-        # port-conflict detection below entirely rather than just hiding
-        # the noise.
-        $errFile = [System.IO.Path]::GetTempFileName()
-        $stdout = docker compose up -d 2>$errFile
+        # Shell out through cmd.exe for plain, predictable file
+        # redirection, rather than letting PowerShell itself capture this
+        # native command's streams. PowerShell 5.1's own handling of a
+        # native command's stderr (via 2>&1 or 2>$file alike) was tried
+        # multiple ways and confirmed unreliable every time - sometimes
+        # wrapping lines as ErrorRecord objects that fail to text-match as
+        # plain strings further down, sometimes leaking formatted
+        # "NativeCommandError" noise to the console regardless of redirect
+        # target, sometimes dropping content if $ErrorActionPreference is
+        # anything quieter than 'Continue'. A cmd.exe /c wrapper does the
+        # redirection itself at the OS level, with none of that.
+        $stdoutFile = [System.IO.Path]::GetTempFileName()
+        $stderrFile = [System.IO.Path]::GetTempFileName()
+        cmd /c "docker compose up -d > `"$stdoutFile`" 2> `"$stderrFile`""
         $status = $LASTEXITCODE
-        $stderrText = Get-Content -Raw -Path $errFile -ErrorAction SilentlyContinue
-        Remove-Item -Path $errFile -ErrorAction SilentlyContinue
+        $stdout = Get-Content -Path $stdoutFile -ErrorAction SilentlyContinue
+        $stderrText = Get-Content -Raw -Path $stderrFile -ErrorAction SilentlyContinue
+        Remove-Item -Path $stdoutFile, $stderrFile -ErrorAction SilentlyContinue
+        $stdout | ForEach-Object { Write-Host $_ }
+        if ($stderrText) { Write-Host $stderrText }
 
         if ($status -eq 0) {
             # docker compose up -d returning success does NOT guarantee
@@ -105,14 +107,13 @@ try {
             Write-Host "docker compose up -d reported success, but chainlp-write-proxy isn't actually running - its own logs:"
             docker logs chaintest-katalon-chainlp-write-proxy 2>&1 | Select-Object -Last 15 | ForEach-Object { Write-Host $_ }
             $stderrText = docker logs chaintest-katalon-chainlp-write-proxy 2>&1 | Out-String
-        } else {
-            $stdout | ForEach-Object { Write-Host $_ }
         }
 
         if ($stderrText -match "port is already allocated" -or $stderrText -match "[Pp]orts are not available") {
             Write-Host "Port $port is already in use on this machine - trying the next one..."
             continue
         }
+
         throw "docker compose up failed for a reason unrelated to the port - see the error above."
     }
 } finally {
