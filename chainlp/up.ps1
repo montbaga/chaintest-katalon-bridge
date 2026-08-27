@@ -54,16 +54,43 @@ foreach ($Port in $CandidatePorts) {
             # Report whatever this actually got published on, not an
             # assumed "localhost" - if ports: was hand-edited to bind a
             # different host (e.g. a real IP for Scenario E/testing),
-            # "localhost" would be silently wrong here otherwise. "0.0.0.0"
-            # isn't itself a URL you can browse to, so that case still
-            # falls back to localhost - real host bindings (a specific
-            # IP) are reported exactly as bound.
+            # "localhost" would be silently wrong here otherwise. Real host
+            # bindings (a specific IP) are reported exactly as bound.
             $BoundHost = (docker port chaintest-katalon-chainlp-proxy 80/tcp 2>$null | Select-Object -First 1) -replace ':\d+$', ''
-            if ([string]::IsNullOrWhiteSpace($BoundHost) -or $BoundHost -eq '0.0.0.0' -or $BoundHost -eq '127.0.0.1') {
+            if ([string]::IsNullOrWhiteSpace($BoundHost) -or $BoundHost -eq '127.0.0.1') {
                 $BoundHost = 'localhost'
+            } elseif ($BoundHost -eq '0.0.0.0') {
+                # "0.0.0.0" means published on every network interface, not
+                # just loopback - someone (Scenario E) deliberately opened
+                # this up so other machines can reach it, which makes
+                # "localhost" actively wrong advice here (it would only ever
+                # mean "whichever machine you're sitting at", never this
+                # server). Auto-detect this machine's own network-facing IP
+                # instead, so the printed address is one another machine
+                # could actually use, with no manual ipconfig lookup needed.
+                # Loopback, link-local (APIPA), and Hyper-V/WSL virtual
+                # switches (what Docker Desktop itself creates) are
+                # excluded since none of those are reachable from another
+                # real machine.
+                $detectedIp = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                    Where-Object {
+                        $_.IPAddress -notlike '127.*' -and
+                        $_.IPAddress -notlike '169.254.*' -and
+                        $_.InterfaceAlias -notlike '*Loopback*' -and
+                        $_.InterfaceAlias -notlike 'vEthernet*'
+                    } |
+                    Select-Object -First 1 -ExpandProperty IPAddress
+                if ($detectedIp) {
+                    $BoundHost = $detectedIp
+                } else {
+                    $BoundHost = 'localhost'
+                }
             }
             Write-Host ""
             Write-Host "ChainLP is up: http://${BoundHost}:$Port/"
+            if ($BoundHost -ne 'localhost' -and $BoundHost -ne '127.0.0.1') {
+                Write-Host "(This is this machine's own detected network IP - double-check it's the right one and actually reachable from wherever you need it before sharing it, since a server with more than one network adapter or VPN active can have several.)"
+            }
             Write-Host "Set this in your Katalon project's Include/config/chaintest/chaintest.properties:"
             Write-Host "  chaintest.generator.chainlp.enabled=true"
             Write-Host "  chaintest.generator.chainlp.host.url=http://${BoundHost}:$Port/"

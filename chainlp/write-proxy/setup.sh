@@ -109,14 +109,32 @@ fi
 
 # Report whatever this actually got published on, not an assumed
 # "localhost" - only wrong if ports: was hand-edited to bind a different
-# host; "0.0.0.0" isn't itself a URL you can browse to, so that case
-# still falls back to localhost.
+# host. Real host bindings (a specific IP) are reported exactly as bound.
 BOUND_HOST=$(docker port chaintest-katalon-chainlp-write-proxy 80/tcp 2>/dev/null | head -1 | cut -d: -f1)
-if [ -z "$BOUND_HOST" ] || [ "$BOUND_HOST" = "0.0.0.0" ] || [ "$BOUND_HOST" = "127.0.0.1" ]; then
+if [ -z "$BOUND_HOST" ] || [ "$BOUND_HOST" = "127.0.0.1" ]; then
   BOUND_HOST="localhost"
+elif [ "$BOUND_HOST" = "0.0.0.0" ]; then
+  # "0.0.0.0" means published on every network interface, not just
+  # loopback - someone deliberately opened this up so other machines can
+  # reach it, which makes "localhost" actively wrong advice here. See
+  # up.sh's matching comment for why `hostname -I` first, `ifconfig` as
+  # fallback, is a reliable enough guess with no manual lookup needed.
+  DETECTED_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+  if [ -z "$DETECTED_IP" ]; then
+    DETECTED_IP=$(ifconfig 2>/dev/null | awk '/inet /{print $2}' | grep -v '^127\.' | head -1)
+  fi
+  if [ -n "$DETECTED_IP" ]; then
+    BOUND_HOST="$DETECTED_IP"
+  else
+    BOUND_HOST="localhost"
+  fi
 fi
 
 echo ""
+if [ "$BOUND_HOST" != "localhost" ] && [ "$BOUND_HOST" != "127.0.0.1" ]; then
+  echo "(This is this machine's own detected network IP - double-check it's the right one and actually reachable from wherever you need it before sharing it, since a server with more than one network adapter or VPN active can have several.)"
+  echo ""
+fi
 echo "Done. In your CI pipeline (any platform - GitLab/GitHub/Azure), set:"
 echo "  CHAINTEST_GENERATOR_CHAINLP_ENABLED=true"
 echo "  CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://$BOUND_HOST:$CHOSEN_PORT/"

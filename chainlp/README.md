@@ -219,12 +219,17 @@ simplest first. Do only **one** of them.
 
 **Option 1 - Just use the server's IP address (no setup, works today)**
 
+Once step 1b's `0.0.0.0` change is in place, you don't need to go find this
+IP yourself - re-run `./up.sh`/`.\up.ps1` (or `write-proxy/setup.sh`/`.ps1`)
+and it now detects and prints your machine's real network IP automatically,
+right alongside the address, e.g. `ChainLP is up: http://10.20.30.40:8085/`.
+
 | | |
 |---|---|
 | Where | On the server itself |
-| Run | Windows: `ipconfig` (read the "IPv4 Address" line)<br>Mac/Linux: `ifconfig` or `ip addr` (read the "inet" line) |
-| Then | Everywhere this document says `chainlp.internal.yourco.com`, use that IP instead - e.g. `http://10.20.30.40:8085/`. That's the address for step 7, and what every teammate types into their own `chaintest.properties` in Scenario D |
-| Downside | If this server's IP ever changes, everyone needs to be told the new one by hand |
+| Then | Use the IP the script just printed everywhere this document says `chainlp.internal.yourco.com` - e.g. `http://10.20.30.40:8085/`. That's the address for step 7, and what every teammate types into their own `chaintest.properties` in Scenario D |
+| Downside | If this server's IP ever changes, everyone needs to be told the new one by hand. A server with more than one network adapter or an active VPN may have several IPs - double-check the one printed is actually the reachable one before relying on it |
+| Prefer to check it yourself instead | Windows: `ipconfig` (read the "IPv4 Address" line)<br>Mac/Linux: `ifconfig` or `ip addr` (read the "inet" line) |
 
 **Option 2 - A friendly name, no real DNS server (fine for a handful of people)**
 

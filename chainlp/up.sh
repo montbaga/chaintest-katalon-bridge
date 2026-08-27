@@ -37,15 +37,40 @@ for PORT in "${CANDIDATE_PORTS[@]}"; do
       # Report whatever this actually got published on, not an assumed
       # "localhost" - if ports: was hand-edited to bind a different host
       # (e.g. a real IP for Scenario E/testing), "localhost" would be
-      # silently wrong here otherwise. "0.0.0.0" isn't itself a URL you can
-      # browse to, so it still falls back to localhost - real host bindings
-      # (a specific IP) are reported exactly as bound.
+      # silently wrong here otherwise. Real host bindings (a specific IP)
+      # are reported exactly as bound.
       BOUND_HOST=$(docker port chaintest-katalon-chainlp-proxy 80/tcp 2>/dev/null | head -1 | cut -d: -f1)
-      if [ -z "$BOUND_HOST" ] || [ "$BOUND_HOST" = "0.0.0.0" ] || [ "$BOUND_HOST" = "127.0.0.1" ]; then
+      if [ -z "$BOUND_HOST" ] || [ "$BOUND_HOST" = "127.0.0.1" ]; then
         BOUND_HOST="localhost"
+      elif [ "$BOUND_HOST" = "0.0.0.0" ]; then
+        # "0.0.0.0" means published on every network interface, not just
+        # loopback - someone (Scenario E) deliberately opened this up so
+        # other machines can reach it, which makes "localhost" actively
+        # wrong advice here (it would only ever mean "whichever machine
+        # you're sitting at", never this server). Auto-detect this
+        # machine's own network-facing IP instead, so the printed address
+        # is one another machine could actually use, with no manual
+        # `ifconfig`/`ip addr` lookup needed. `hostname -I` lists a
+        # machine's addresses with real network interfaces first and
+        # virtual ones (docker0, etc.) after on every mainstream Linux
+        # distro, so the first word is a reliable guess; `ifconfig`
+        # (macOS, or Linux without `hostname -I`) is the fallback, filtered
+        # down to the first non-loopback address.
+        DETECTED_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+        if [ -z "$DETECTED_IP" ]; then
+          DETECTED_IP=$(ifconfig 2>/dev/null | awk '/inet /{print $2}' | grep -v '^127\.' | head -1)
+        fi
+        if [ -n "$DETECTED_IP" ]; then
+          BOUND_HOST="$DETECTED_IP"
+        else
+          BOUND_HOST="localhost"
+        fi
       fi
       echo ""
       echo "ChainLP is up: http://$BOUND_HOST:$PORT/"
+      if [ "$BOUND_HOST" != "localhost" ] && [ "$BOUND_HOST" != "127.0.0.1" ]; then
+        echo "(This is this machine's own detected network IP - double-check it's the right one and actually reachable from wherever you need it before sharing it, since a server with more than one network adapter or VPN active can have several.)"
+      fi
       echo "Set this in your Katalon project's Include/config/chaintest/chaintest.properties:"
       echo "  chaintest.generator.chainlp.enabled=true"
       echo "  chaintest.generator.chainlp.host.url=http://$BOUND_HOST:$PORT/"

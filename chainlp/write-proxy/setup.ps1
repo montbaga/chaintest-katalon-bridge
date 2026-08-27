@@ -129,14 +129,36 @@ if (-not $chosenPort) {
 
 # Report whatever this actually got published on, not an assumed
 # "localhost" - only wrong if ports: was hand-edited to bind a different
-# host; "0.0.0.0" isn't itself a URL you can browse to, so that case
-# still falls back to localhost.
+# host. Real host bindings (a specific IP) are reported exactly as bound.
 $boundHost = (docker port chaintest-katalon-chainlp-write-proxy 80/tcp 2>$null | Select-Object -First 1) -replace ':\d+$', ''
-if ([string]::IsNullOrWhiteSpace($boundHost) -or $boundHost -eq '0.0.0.0' -or $boundHost -eq '127.0.0.1') {
+if ([string]::IsNullOrWhiteSpace($boundHost) -or $boundHost -eq '127.0.0.1') {
     $boundHost = 'localhost'
+} elseif ($boundHost -eq '0.0.0.0') {
+    # "0.0.0.0" means published on every network interface, not just
+    # loopback - someone deliberately opened this up so other machines can
+    # reach it, which makes "localhost" actively wrong advice here. See
+    # up.ps1's matching comment for why this filter is a reliable enough
+    # guess with no manual ipconfig lookup needed.
+    $detectedIp = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.IPAddress -notlike '127.*' -and
+            $_.IPAddress -notlike '169.254.*' -and
+            $_.InterfaceAlias -notlike '*Loopback*' -and
+            $_.InterfaceAlias -notlike 'vEthernet*'
+        } |
+        Select-Object -First 1 -ExpandProperty IPAddress
+    if ($detectedIp) {
+        $boundHost = $detectedIp
+    } else {
+        $boundHost = 'localhost'
+    }
 }
 
 Write-Host ""
+if ($boundHost -ne 'localhost' -and $boundHost -ne '127.0.0.1') {
+    Write-Host "(This is this machine's own detected network IP - double-check it's the right one and actually reachable from wherever you need it before sharing it, since a server with more than one network adapter or VPN active can have several.)"
+    Write-Host ""
+}
 Write-Host "Done. In your CI pipeline (any platform - GitLab/GitHub/Azure), set:"
 Write-Host "  CHAINTEST_GENERATOR_CHAINLP_ENABLED=true"
 Write-Host "  CHAINTEST_GENERATOR_CHAINLP_HOST_URL=http://${boundHost}:$chosenPort/"
